@@ -1,0 +1,25 @@
+entidades {
+  sensor mov_corredor = binary_sensor.motion_sensor_movimento;
+  sensor mov_corredor2 = binary_sensor.corredor_suite_luminance_motion_sensor_movimento;
+  luz led_corredor = light.corda_led_corredor;
+  alarme casa = alarm_control_panel.alarmo;
+  clima tempo = weather.forecast_casa;
+}
+
+automacao "Corredor - movimento" {
+  quando mov_corredor muda para on ou mov_corredor2 muda para on;
+  se casa esta disarmed e led_corredor esta off;
+  entao ligar led_corredor; esperar 45s; desligar led_corredor;
+  modo restart;
+}
+
+automacao "Por do sol" {
+  quando por_do_sol -45min;
+  se tempo esta cloudy ou tempo esta rainy;
+  entao escolha {
+    caso tempo esta rainy -> notificar "Chuva";
+    caso tempo esta cloudy -> notificar "Nublado";
+    senao notificar "Tempo ok";
+  };
+  modo single;
+}

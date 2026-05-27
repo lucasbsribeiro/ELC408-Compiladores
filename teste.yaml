@@ -1,0 +1,66 @@
+- id: '1779886781243'
+  alias: 'Corredor - movimento'
+  description: ''
+  triggers:
+    - trigger: 'state'
+      entity_id: 'binary_sensor.motion_sensor_movimento'
+      to: 'on'
+    - trigger: 'state'
+      entity_id: 'binary_sensor.corredor_suite_luminance_motion_sensor_movimento'
+      to: 'on'
+  conditions:
+    - condition: 'state'
+      entity_id: 'alarm_control_panel.alarmo'
+      state: 'disarmed'
+    - condition: 'state'
+      entity_id: 'light.corda_led_corredor'
+      state: 'off'
+  actions:
+    - action: 'light.turn_on'
+      target:
+        entity_id: 'light.corda_led_corredor'
+    - delay:
+        seconds: 45
+    - action: 'light.turn_off'
+      target:
+        entity_id: 'light.corda_led_corredor'
+  mode: 'restart'
+- id: '1779886781244'
+  alias: 'Por do sol'
+  description: ''
+  triggers:
+    - trigger: 'sun'
+      event: 'sunset'
+      offset: '-00:45:00'
+  conditions:
+    - condition: 'or'
+      conditions:
+        - condition: 'state'
+          entity_id: 'weather.forecast_casa'
+          state: 'cloudy'
+        - condition: 'state'
+          entity_id: 'weather.forecast_casa'
+          state: 'rainy'
+  actions:
+    - choose:
+        - conditions:
+            - condition: 'state'
+              entity_id: 'weather.forecast_casa'
+              state: 'rainy'
+          sequence:
+            - action: 'notify.notify'
+              data:
+                message: 'Chuva'
+        - conditions:
+            - condition: 'state'
+              entity_id: 'weather.forecast_casa'
+              state: 'cloudy'
+          sequence:
+            - action: 'notify.notify'
+              data:
+                message: 'Nublado'
+      default:
+        - action: 'notify.notify'
+          data:
+            message: 'Tempo ok'
+  mode: 'single'
