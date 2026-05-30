@@ -1,0 +1,4 @@
+automacao "Erro Lexico 1" {
+  quando @;
+  entao notificar "teste";
+}

@@ -1,0 +1,11 @@
+entidades {
+  sensor porta = binary_sensor.porta_entrada;
+  alarme casa = alarm_control_panel.alarmo;
+}
+
+automacao "Alerta - porta aberta" {
+  quando porta muda para on;
+  se (hora entre 22:00 e 06:00 e nao casa esta armed) ou (sol entre por_do_sol e nascer_do_sol);
+  entao notificar "Porta aberta";
+  modo single;
+}

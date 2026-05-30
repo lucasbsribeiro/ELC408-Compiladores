@@ -1,0 +1,5 @@
+automacao "Erro Sintatico 5" {
+  quando hora 10:00;
+  entao se hora depois 09:00 ligar sala;
+  modo single;
+}

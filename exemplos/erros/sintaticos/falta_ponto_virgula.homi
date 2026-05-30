@@ -1,0 +1,4 @@
+automacao "Erro Sintatico 1" {
+  quando hora 10:00
+  entao notificar "teste";
+}

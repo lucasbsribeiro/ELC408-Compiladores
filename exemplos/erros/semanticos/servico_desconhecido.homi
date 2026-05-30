@@ -1,0 +1,9 @@
+entidades {
+  sensor temp = sensor.temp;
+}
+
+automacao "Erro Semantico 5" {
+  quando hora 10:00;
+  entao servico weather.turn_on(entity_id=weather.casa);
+  modo single;
+}

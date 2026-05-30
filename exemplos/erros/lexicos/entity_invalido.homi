@@ -1,0 +1,8 @@
+entidades {
+  sensor temp = sensor.$temp;
+}
+
+automacao "Erro Lexico 2" {
+  quando hora 10:00;
+  entao notificar "teste";
+}

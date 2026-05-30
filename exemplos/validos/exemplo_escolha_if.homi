@@ -1,0 +1,17 @@
+entidades {
+  clima tempo = weather.forecast_casa;
+  luz abajur = light.abajur_quarto;
+  alarme casa = alarm_control_panel.alarmo;
+}
+
+automacao "Clima - aviso e luz" {
+  quando por_do_sol -15min;
+  se casa esta disarmed;
+  entao escolha {
+    caso tempo esta rainy -> notificar "Chuva";
+    caso tempo esta cloudy -> notificar "Nublado";
+    senao notificar "Tempo ok";
+  };
+  se abajur esta off entao ligar abajur senao desligar abajur;
+  modo single;
+}

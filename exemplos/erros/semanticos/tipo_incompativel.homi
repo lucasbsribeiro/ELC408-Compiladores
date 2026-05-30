@@ -1,0 +1,9 @@
+entidades {
+  luz sala = sensor.temp;
+}
+
+automacao "Erro Semantico 2" {
+  quando hora 10:00;
+  entao ligar sala;
+  modo single;
+}
