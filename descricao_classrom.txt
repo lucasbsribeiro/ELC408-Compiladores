@@ -1,0 +1,14 @@
+O presente trabalho compreende a nota total do segundo bimestre de Compiladores, totalizando os 10 pontos do segundo bimestre.
+Detalhes:
+O trabalho será apresentado em aula a partir do dia 08 de junho.
+Para apresentar o trabalho, deve estar entregue via Classroom.
+Cada aluno terá até 15 minutos para fazer a apresentação de seu trabalho, podendo usar o quadro e datashow.
+Cada aluno deve definir uma gramática própria, desde que atenda as normas do exercício.
+Juntamente com o código produzido (compactado em um único arquivo, contendo tb pelo menos 5 arquivos com códigos exemplos que estão de acordo com a gramática), deve ser entregue um relatório em PDF apresentando a gramática criada, os passos para instalação de todas as ferramentas para a execução do código, detalhando a implementação realizada (apresentando quais abordagens foram utilizadas para a implementação dos analisadores e da execução do código)
+Pontuação:
+Especificação da GLC - 10%
+Analisador Léxico - 10%
+Analisador Sintático - 10%
+Analisador Semântico - 10%
+Detecção de Erros - 10%
+Apresentação e Testes - 50%
