@@ -50,6 +50,7 @@ class Automation:
 @dataclass
 class TriggerState:
     entity: EntityRef
+    operator: str
     to_state: Any
     duration: Optional[Duration]
     line: int

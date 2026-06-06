@@ -34,7 +34,7 @@ TYPE_DOMAINS = {
     "interruptor": {"switch"},
     "alarme": {"alarm_control_panel"},
     "timer": {"timer"},
-    "clima": {"weather"},
+    "clima": {"weather", "climate"},
     "midia": {"media_player"},
     "cortina": {"cover"},
     "cena": {"scene"},
@@ -49,6 +49,7 @@ DOMAIN_TYPES = {
     "alarm_control_panel": "alarme",
     "timer": "timer",
     "weather": "clima",
+    "climate": "clima",
     "media_player": "midia",
     "cover": "cortina",
     "scene": "cena",
@@ -124,10 +125,10 @@ class SemanticAnalyzer:
     def _check_trigger(self, trigger: object, symbols: Dict[str, EntityDecl], errors: List[str]) -> None:
         if isinstance(trigger, TriggerState):
             entity_id, type_name = self._resolve_entity(trigger.entity, symbols, errors)
+            self._check_comparison(trigger.operator, trigger.to_state, trigger.line, errors)
             self._check_state_value(type_name, trigger.to_state, trigger.line, errors)
         elif isinstance(trigger, TriggerDevice):
-            entity_id, type_name = self._resolve_entity(trigger.entity, symbols, errors)
-            self._check_state_value(type_name, trigger.event, trigger.line, errors)
+            self._resolve_entity(trigger.entity, symbols, errors)
         elif isinstance(trigger, (TriggerEvent, TriggerTime, TriggerBetween, TriggerSun)):
             return
 
@@ -137,6 +138,8 @@ class SemanticAnalyzer:
             if kind in {"state", "device"}:
                 entity = expr.data.get("entity")
                 state = expr.data.get("state")
+                operator = expr.data.get("operator", "esta")
+                self._check_comparison(operator, state, expr.line, errors)
                 if isinstance(entity, EntityRef):
                     _, type_name = self._resolve_entity(entity, symbols, errors)
                     self._check_state_value(type_name, state, expr.line, errors)
@@ -149,7 +152,7 @@ class SemanticAnalyzer:
     def _check_action(self, action: object, symbols: Dict[str, EntityDecl], errors: List[str]) -> None:
         if isinstance(action, ActionTurn):
             _, type_name = self._resolve_entity(action.entity, symbols, errors)
-            if type_name not in {"luz", "interruptor", "midia", "cortina"}:
+            if type_name not in {"luz", "interruptor", "midia", "cortina", "clima"}:
                 errors.append(
                     f"[Semantico] Linha {action.line}: acao ligar/desligar invalida para tipo '{type_name}'"
                 )
@@ -238,6 +241,12 @@ class SemanticAnalyzer:
                 errors.append(
                     f"[Semantico] Linha {line}: estado '{state}' invalido para tipo '{type_name}'"
                 )
+
+    def _check_comparison(self, operator: str, value: object, line: int, errors: List[str]) -> None:
+        if operator in {">", "<", ">=", "<="} and not isinstance(value, (int, float)):
+            errors.append(
+                f"[Semantico] Linha {line}: operador '{operator}' exige valor numerico"
+            )
 
     def _domain_from_entity_id(self, entity_id: str) -> Optional[str]:
         if "." not in entity_id:

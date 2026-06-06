@@ -46,6 +46,21 @@ TYPE_TOKENS = {
 
 MODE_TOKENS = {"single", "restart", "queued", "parallel"}
 
+COMPARISON_TOKENS = {"OP_EQ", "OP_NE", "OP_GT", "OP_LT", "OP_GE", "OP_LE", "esta"}
+
+DEVICE_EVENT_TOKENS = {"pressionado", "girado", "movido"}
+
+ACTION_START_TOKENS = {
+    "ligar",
+    "desligar",
+    "esperar",
+    "notificar",
+    "timer",
+    "servico",
+    "se",
+    "escolha",
+}
+
 VALUE_START = {
     "STRING",
     "NUMBER",
@@ -102,6 +117,7 @@ PREDICTIVE_TABLE: Dict[str, Dict[str, str]] = {
     "bloco_se_opt": {"se": "bloco_se", "entao": EPSILON},
     "expr_or_tail": {
         "ou": "expr_or_tail",
+        "ARROW": EPSILON,
         "SEMICOLON": EPSILON,
         "entao": EPSILON,
         "senao": EPSILON,
@@ -109,6 +125,7 @@ PREDICTIVE_TABLE: Dict[str, Dict[str, str]] = {
     },
     "expr_and_tail": {
         "e": "expr_and_tail",
+        "ARROW": EPSILON,
         "ou": EPSILON,
         "SEMICOLON": EPSILON,
         "entao": EPSILON,
@@ -143,6 +160,15 @@ PREDICTIVE_TABLE: Dict[str, Dict[str, str]] = {
         "entre": "tempo_entre",
         "depois": "tempo_depois",
         "antes": "tempo_antes",
+    },
+    "operador_comparacao": {
+        "OP_EQ": "op",
+        "OP_NE": "op",
+        "OP_GT": "op",
+        "OP_LT": "op",
+        "OP_GE": "op",
+        "OP_LE": "op",
+        "esta": "op",
     },
     "lista_acoes_tail": {
         "SEMICOLON": "acao_tail",
@@ -204,12 +230,13 @@ SYNC_SETS: Dict[str, Set[str]] = {
     "lista_gatilhos_tail": {"SEMICOLON", "se", "entao", "modo", "RBRACE"},
     "gatilho": {"SEMICOLON", "se", "entao", "modo", "RBRACE"},
     "bloco_se_opt": {"entao", "modo", "RBRACE"},
-    "expr_or_tail": {"SEMICOLON", "entao", "senao", "RPAREN"},
-    "expr_and_tail": {"ou", "SEMICOLON", "entao", "senao", "RPAREN"},
-    "expr_not": {"SEMICOLON", "entao", "senao", "RPAREN"},
-    "prim_cond": {"SEMICOLON", "entao", "senao", "RPAREN"},
-    "condicao": {"SEMICOLON", "entao", "senao", "RPAREN"},
-    "condicao_tempo_tail": {"SEMICOLON", "entao", "senao", "RPAREN"},
+    "expr_or_tail": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
+    "expr_and_tail": {"ARROW", "ou", "SEMICOLON", "entao", "senao", "RPAREN"},
+    "expr_not": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
+    "prim_cond": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
+    "condicao": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
+    "condicao_tempo_tail": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
+    "operador_comparacao": {"STATE", "STRING", "NUMBER", "IDENT"},
     "acao": {"SEMICOLON", "senao", "caso", "RBRACE"},
     "lista_acoes_tail": {"modo", "RBRACE", "senao", "caso"},
     "args_opt": {"RPAREN"},
@@ -355,13 +382,12 @@ class Parser:
 
     def _parse_state_trigger(self) -> Optional[TriggerState]:
         ref = self._parse_entity_ref()
-        self._expect("muda", {"para"})
-        self._expect("para", {"SEMICOLON", "por"})
+        operator = self._parse_comparison_operator()
         state = self._parse_state_value()
         duration = self._parse_janela_opt()
         if not ref:
             return None
-        return TriggerState(entity=ref, to_state=state, duration=duration, line=ref.line)
+        return TriggerState(entity=ref, operator=operator, to_state=state, duration=duration, line=ref.line)
 
     def _parse_event_trigger(self) -> Optional[TriggerEvent]:
         start = self._expect("evento", {"IDENT"})
@@ -400,7 +426,7 @@ class Parser:
     def _parse_device_trigger(self) -> Optional[TriggerDevice]:
         start = self._expect("dispositivo", {"IDENT", "ENTITY_ID"})
         ref = self._parse_entity_ref()
-        event_tok = self._expect_any({"IDENT", "STATE"}, {"por", "SEMICOLON"})
+        event_tok = self._expect_any(DEVICE_EVENT_TOKENS, {"por", "SEMICOLON"})
         duration = self._parse_janela_opt()
         if not start or not ref or not event_tok:
             return None
@@ -436,9 +462,8 @@ class Parser:
         return expr
 
     def _parse_entao(self) -> List[Any]:
-        self._expect("entao", {"SEMICOLON", "modo", "RBRACE"})
-        actions = self._parse_action_list({"modo", "RBRACE"}, require_trailing=True)
-        return actions
+        self._expect("entao", {"LBRACE"})
+        return self._parse_action_block({"modo", "RBRACE"})
 
     def _parse_bloco_modo_opt(self) -> Optional[str]:
         prod = self._predict("bloco_modo_opt")
@@ -518,9 +543,9 @@ class Parser:
 
     def _parse_state_condition(self) -> ConditionAtom:
         ref = self._parse_entity_ref()
-        self._expect("esta", {"STATE", "STRING", "NUMBER", "IDENT"})
+        operator = self._parse_comparison_operator()
         state = self._parse_state_value()
-        return ConditionAtom(kind="state", data={"entity": ref, "state": state}, line=ref.line)
+        return ConditionAtom(kind="state", data={"entity": ref, "operator": operator, "state": state}, line=ref.line)
 
     def _parse_time_condition(self) -> ConditionAtom:
         start = self._expect("hora", {"entre", "depois", "antes"})
@@ -572,25 +597,46 @@ class Parser:
         state = self._parse_state_value()
         return ConditionAtom(kind="device", data={"entity": ref, "state": state}, line=start.line if start else self._current().line)
 
-    def _parse_action_list(self, stop_types: Set[str], require_trailing: bool) -> List[Any]:
+    def _parse_comparison_operator(self) -> str:
+        self._predict("operador_comparacao")
+        tok = self._expect_any(COMPARISON_TOKENS, {"STATE", "STRING", "NUMBER", "IDENT"})
+        return tok.lexeme if tok else "esta"
+
+    def _parse_action_block(self, outer_sync: Set[str]) -> List[Any]:
+        self._expect("LBRACE", {"RBRACE"} | outer_sync)
+        actions = self._parse_action_list({"RBRACE"}, require_trailing=True, allow_empty=True)
+        self._expect("RBRACE", outer_sync)
+        return actions
+
+    def _parse_action_list(self, stop_types: Set[str], require_trailing: bool, allow_empty: bool = False) -> List[Any]:
         actions: List[Any] = []
         if self._check_any(stop_types):
-            self._error_at(self._current(), "acao esperada")
+            if not allow_empty:
+                self._error_at(self._current(), "acao esperada")
             return actions
 
-        actions.append(self._parse_action())
-        saw_semicolon = False
+        while not self._check("EOF") and not self._check_any(stop_types):
+            action = self._parse_action()
+            actions.append(action)
 
-        while self._match("SEMICOLON"):
-            saw_semicolon = True
+            if self._match("SEMICOLON"):
+                continue
+
             if self._check_any(stop_types):
+                if require_trailing and self._action_requires_semicolon(action):
+                    self._error_at(self._current(), "esperado ';' ao final do bloco de acoes")
                 break
-            actions.append(self._parse_action())
 
-        if require_trailing and not saw_semicolon:
-            self._error_at(self._current(), "esperado ';' ao final do bloco de acoes")
+            if self._action_requires_semicolon(action):
+                self._error_at(self._current(), "esperado ';' ao final da acao")
+
+            if not self._check_any(ACTION_START_TOKENS):
+                break
 
         return actions
+
+    def _action_requires_semicolon(self, action: Any) -> bool:
+        return not isinstance(action, (ActionIf, ActionChoose))
 
     def _parse_action(self) -> Any:
         prod = self._predict("acao")
@@ -638,13 +684,13 @@ class Parser:
         return ActionNotify(message="", line=self._current().line)
 
     def _parse_action_if(self) -> ActionIf:
-        start = self._expect("se", {"entao"})
+        start = self._expect("se", {"LPAREN", "hora", "sol", "dispositivo", "IDENT", "ENTITY_ID", "nao"})
         cond = self._parse_expr_or()
-        self._expect("entao", {"SEMICOLON", "senao", "RBRACE"})
-        then_actions = self._parse_action_list({"senao", "modo", "RBRACE"}, require_trailing=False)
+        self._expect("entao", {"LBRACE"})
+        then_actions = self._parse_action_block({"senao", "SEMICOLON", "RBRACE"})
         else_actions = None
         if self._match("senao"):
-            else_actions = self._parse_action_list({"modo", "RBRACE"}, require_trailing=False)
+            else_actions = self._parse_action_block({"SEMICOLON", "RBRACE"})
         return ActionIf(condition=cond, then_actions=then_actions, else_actions=else_actions, line=start.line if start else self._current().line)
 
     def _parse_action_choose(self) -> ActionChoose:
@@ -657,12 +703,12 @@ class Parser:
                 break
             self._expect("caso", {"SEMICOLON"})
             cond = self._parse_expr_or()
-            self._expect("ARROW", {"SEMICOLON"})
-            actions = self._parse_action_list({"caso", "senao", "RBRACE"}, require_trailing=True)
+            self._expect("ARROW", {"LBRACE"})
+            actions = self._parse_action_block({"caso", "senao", "RBRACE"})
             cases.append(ChooseCase(condition=cond, actions=actions, line=self._current().line))
         default_actions = None
         if self._match("senao"):
-            default_actions = self._parse_action_list({"RBRACE"}, require_trailing=True)
+            default_actions = self._parse_action_block({"RBRACE"})
         self._expect("RBRACE", {"SEMICOLON", "RBRACE", "modo"})
         return ActionChoose(cases=cases, default_actions=default_actions, line=start.line if start else self._current().line)
 

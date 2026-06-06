@@ -74,11 +74,20 @@ class YamlGenerator:
     def _trigger_to_yaml(self, trigger: Any) -> Dict[str, Any]:
         if isinstance(trigger, TriggerState):
             entity_id = self._resolve_entity(trigger.entity)
-            payload: Dict[str, Any] = {
-                "trigger": "state",
-                "entity_id": entity_id,
-                "to": self._normalize_state(trigger.to_state),
-            }
+            if trigger.operator in {">", "<", ">=", "<="}:
+                payload = {
+                    "trigger": "numeric_state",
+                    "entity_id": entity_id,
+                    **self._numeric_operator_payload(trigger.operator, trigger.to_state),
+                }
+            else:
+                payload = {
+                    "trigger": "state",
+                    "entity_id": entity_id,
+                    "to": self._normalize_state(trigger.to_state),
+                }
+                if trigger.operator == "!=":
+                    payload["not_to"] = payload.pop("to")
             if trigger.duration:
                 payload["for"] = self._duration_to_dict(trigger.duration)
             return payload
@@ -137,11 +146,23 @@ class YamlGenerator:
         if atom.kind in {"state", "device"}:
             entity = atom.data.get("entity")
             state = atom.data.get("state")
+            operator = atom.data.get("operator", "esta")
             entity_id = self._resolve_entity(entity) if isinstance(entity, EntityRef) else ""
-            return {
+            if operator in {">", "<", ">=", "<="}:
+                return {
+                    "condition": "numeric_state",
+                    "entity_id": entity_id,
+                    **self._numeric_operator_payload(operator, state),
+                }
+            payload = {
                 "condition": "state",
                 "entity_id": entity_id,
                 "state": self._normalize_state(state),
+            }
+            if operator == "!=":
+                return {"condition": "not", "conditions": [payload]}
+            return {
+                **payload,
             }
         if atom.kind == "time":
             payload: Dict[str, Any] = {"condition": "time"}
@@ -264,6 +285,17 @@ class YamlGenerator:
         if duration.unit == "d":
             return int(value * 86400)
         return int(value)
+
+    def _numeric_operator_payload(self, operator: str, value: Any) -> Dict[str, Any]:
+        if operator == ">":
+            return {"above": value}
+        if operator == ">=":
+            return {"above": value - 0.000001 if isinstance(value, (int, float)) else value}
+        if operator == "<":
+            return {"below": value}
+        if operator == "<=":
+            return {"below": value + 0.000001 if isinstance(value, (int, float)) else value}
+        return {}
 
     def _normalize_time(self, time_text: str) -> str:
         if time_text.count(":") == 1:

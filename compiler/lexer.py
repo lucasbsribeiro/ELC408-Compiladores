@@ -37,6 +37,9 @@ KEYWORDS = {
     "iniciar",
     "parar",
     "finalizar",
+    "pressionado",
+    "girado",
+    "movido",
     "single",
     "restart",
     "queued",
@@ -144,6 +147,22 @@ class Lexer:
 
         if ch.isalpha() or ch == "_":
             return self._read_identifier_or_keyword(start_line, start_col)
+
+        two_chars = ch + self._peek(1)
+        comparison_tokens = {
+            "==": "OP_EQ",
+            "!=": "OP_NE",
+            ">=": "OP_GE",
+            "<=": "OP_LE",
+        }
+        if two_chars in comparison_tokens:
+            self._advance()
+            self._advance()
+            return Token(comparison_tokens[two_chars], two_chars, start_line, start_col)
+
+        if ch in {">", "<"}:
+            self._advance()
+            return Token("OP_GT" if ch == ">" else "OP_LT", ch, start_line, start_col)
 
         if ch == "-" and self._peek(1) == ">":
             self._advance()
