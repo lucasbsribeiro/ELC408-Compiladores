@@ -1,0 +1,12 @@
+entidades {
+  luz jardim = light.jardim;
+}
+
+automacao "Acender jardim ao pôr do sol" {
+  quando por_do_sol;
+  se luz.jardim == off;
+  entao {
+    ligar jardim;
+  }
+  modo single;
+}

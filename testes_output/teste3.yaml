@@ -1,0 +1,24 @@
+- id: '1780769873658'
+  alias: 'Controle de presença'
+  description: ''
+  triggers:
+    - trigger: 'state'
+      entity_id: 'binary_sensor.quarto'
+      to: 'on'
+  conditions:
+  actions:
+    - if:
+        - condition: 'not'
+          conditions:
+            - condition: 'state'
+              entity_id: 'light.quarto'
+              state: 'on'
+      then:
+        - action: 'light.turn_on'
+          target:
+            entity_id: 'light.quarto'
+      else:
+        - action: 'notify.notify'
+          data:
+            message: 'Luz já está ligada'
+  mode: 'restart'

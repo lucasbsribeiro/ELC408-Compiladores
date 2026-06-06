@@ -1,185 +1,229 @@
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
-
-@dataclass
+# Guarda o programa completo.
 class Program:
-    entities: List["EntityDecl"] = field(default_factory=list)
-    automations: List["Automation"] = field(default_factory=list)
+    # Inicializa o programa.
+    def __init__(self, entities=None, automations=None):
+        self.entities = entities or []
+        self.automations = automations or []
 
 
-@dataclass
+# Guarda uma entidade declarada.
 class EntityDecl:
-    type_name: str
-    alias: str
-    entity_id: str
-    line: int
+    # Inicializa uma entidade declarada.
+    def __init__(self, type_name, alias, entity_id, line):
+        self.type_name = type_name
+        self.alias = alias
+        self.entity_id = entity_id
+        self.line = line
 
 
-@dataclass
+# Guarda uma referencia para entidade ou alias.
 class EntityRef:
-    name: str
-    is_entity_id: bool
-    line: int
+    # Inicializa uma referencia de entidade.
+    def __init__(self, name, is_entity_id, line):
+        self.name = name
+        self.is_entity_id = is_entity_id
+        self.line = line
 
 
-@dataclass
+# Guarda uma duracao com unidade.
 class Duration:
-    value: float
-    unit: str
-    line: int
+    # Inicializa uma duracao.
+    def __init__(self, value, unit, line):
+        self.value = value
+        self.unit = unit
+        self.line = line
 
 
-@dataclass
+# Guarda um valor de argumento.
 class Value:
-    kind: str
-    value: Any
-    line: int
+    # Inicializa um valor.
+    def __init__(self, kind, value, line):
+        self.kind = kind
+        self.value = value
+        self.line = line
 
 
-@dataclass
+# Guarda uma automacao.
 class Automation:
-    name: str
-    triggers: List[Any]
-    condition: Optional[Any]
-    actions: List[Any]
-    mode: Optional[str]
-    line: int
+    # Inicializa uma automacao.
+    def __init__(self, name, triggers, condition, actions, mode, line):
+        self.name = name
+        self.triggers = triggers
+        self.condition = condition
+        self.actions = actions
+        self.mode = mode
+        self.line = line
 
 
-@dataclass
+# Guarda um gatilho por estado.
 class TriggerState:
-    entity: EntityRef
-    operator: str
-    to_state: Any
-    duration: Optional[Duration]
-    line: int
-    kind: str = "state"
+    # Inicializa um gatilho de estado.
+    def __init__(self, entity, operator, to_state, duration, line):
+        self.entity = entity
+        self.operator = operator
+        self.to_state = to_state
+        self.duration = duration
+        self.line = line
+        self.kind = "state"
 
 
-@dataclass
+# Guarda um gatilho por evento.
 class TriggerEvent:
-    event_name: str
-    line: int
-    kind: str = "event"
+    # Inicializa um gatilho de evento.
+    def __init__(self, event_name, line):
+        self.event_name = event_name
+        self.line = line
+        self.kind = "event"
 
 
-@dataclass
+# Guarda um gatilho por horario.
 class TriggerTime:
-    time: str
-    line: int
-    kind: str = "time"
+    # Inicializa um gatilho de horario.
+    def __init__(self, time, line):
+        self.time = time
+        self.line = line
+        self.kind = "time"
 
 
-@dataclass
+# Guarda um gatilho por intervalo de horario.
 class TriggerBetween:
-    start: str
-    end: str
-    line: int
-    kind: str = "between"
+    # Inicializa um gatilho de intervalo.
+    def __init__(self, start, end, line):
+        self.start = start
+        self.end = end
+        self.line = line
+        self.kind = "between"
 
 
-@dataclass
+# Guarda um gatilho solar.
 class TriggerSun:
-    event: str
-    offset: Optional[Duration]
-    offset_sign: Optional[str]
-    line: int
-    kind: str = "sun"
+    # Inicializa um gatilho solar.
+    def __init__(self, event, offset, offset_sign, line):
+        self.event = event
+        self.offset = offset
+        self.offset_sign = offset_sign
+        self.line = line
+        self.kind = "sun"
 
 
-@dataclass
+# Guarda um gatilho de dispositivo.
 class TriggerDevice:
-    entity: EntityRef
-    event: str
-    duration: Optional[Duration]
-    line: int
-    kind: str = "device"
+    # Inicializa um gatilho de dispositivo.
+    def __init__(self, entity, event, duration, line):
+        self.entity = entity
+        self.event = event
+        self.duration = duration
+        self.line = line
+        self.kind = "device"
 
 
-@dataclass
+# Guarda uma condicao simples.
 class ConditionAtom:
-    kind: str
-    data: Dict[str, Any]
-    line: int
+    # Inicializa uma condicao simples.
+    def __init__(self, kind, data, line):
+        self.kind = kind
+        self.data = data
+        self.line = line
 
 
-@dataclass
+# Guarda uma expressao com e.
 class ExprAnd:
-    items: List[Any]
-    line: int
+    # Inicializa uma expressao e.
+    def __init__(self, items, line):
+        self.items = items
+        self.line = line
 
 
-@dataclass
+# Guarda uma expressao com ou.
 class ExprOr:
-    items: List[Any]
-    line: int
+    # Inicializa uma expressao ou.
+    def __init__(self, items, line):
+        self.items = items
+        self.line = line
 
 
-@dataclass
+# Guarda uma expressao negada.
 class ExprNot:
-    item: Any
-    line: int
+    # Inicializa uma expressao negada.
+    def __init__(self, item, line):
+        self.item = item
+        self.line = line
 
 
-@dataclass
+# Guarda uma acao de ligar ou desligar.
 class ActionTurn:
-    turn_on: bool
-    entity: EntityRef
-    line: int
-    kind: str = "turn"
+    # Inicializa uma acao de ligar ou desligar.
+    def __init__(self, turn_on, entity, line):
+        self.turn_on = turn_on
+        self.entity = entity
+        self.line = line
+        self.kind = "turn"
 
 
-@dataclass
+# Guarda uma acao de espera.
 class ActionDelay:
-    duration: Duration
-    line: int
-    kind: str = "delay"
+    # Inicializa uma acao de espera.
+    def __init__(self, duration, line):
+        self.duration = duration
+        self.line = line
+        self.kind = "delay"
 
 
-@dataclass
+# Guarda uma acao de notificacao.
 class ActionNotify:
-    message: str
-    line: int
-    kind: str = "notify"
+    # Inicializa uma acao de notificacao.
+    def __init__(self, message, line):
+        self.message = message
+        self.line = line
+        self.kind = "notify"
 
 
-@dataclass
+# Guarda uma acao de timer.
 class ActionTimer:
-    entity: EntityRef
-    operation: str
-    line: int
-    kind: str = "timer"
+    # Inicializa uma acao de timer.
+    def __init__(self, entity, operation, line):
+        self.entity = entity
+        self.operation = operation
+        self.line = line
+        self.kind = "timer"
 
 
-@dataclass
+# Guarda uma chamada de servico.
 class ActionService:
-    domain: str
-    service: str
-    args: Dict[str, Value]
-    line: int
-    kind: str = "service"
+    # Inicializa uma acao de servico.
+    def __init__(self, domain, service, args, line):
+        self.domain = domain
+        self.service = service
+        self.args = args
+        self.line = line
+        self.kind = "service"
 
 
-@dataclass
+# Guarda uma acao condicional.
 class ActionIf:
-    condition: Any
-    then_actions: List[Any]
-    else_actions: Optional[List[Any]]
-    line: int
-    kind: str = "if"
+    # Inicializa uma acao condicional.
+    def __init__(self, condition, then_actions, else_actions, line):
+        self.condition = condition
+        self.then_actions = then_actions
+        self.else_actions = else_actions
+        self.line = line
+        self.kind = "if"
 
 
-@dataclass
+# Guarda um caso de escolha.
 class ChooseCase:
-    condition: Any
-    actions: List[Any]
-    line: int
+    # Inicializa um caso de escolha.
+    def __init__(self, condition, actions, line):
+        self.condition = condition
+        self.actions = actions
+        self.line = line
 
 
-@dataclass
+# Guarda uma acao escolha.
 class ActionChoose:
-    cases: List[ChooseCase]
-    default_actions: Optional[List[Any]]
-    line: int
-    kind: str = "choose"
+    # Inicializa uma acao escolha.
+    def __init__(self, cases, default_actions, line):
+        self.cases = cases
+        self.default_actions = default_actions
+        self.line = line
+        self.kind = "choose"

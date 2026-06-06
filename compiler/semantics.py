@@ -1,6 +1,3 @@
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
-
 from .ast import (
     ActionChoose,
     ActionDelay,
@@ -9,22 +6,17 @@ from .ast import (
     ActionService,
     ActionTimer,
     ActionTurn,
-    Automation,
-    ChooseCase,
     ConditionAtom,
-    EntityDecl,
     EntityRef,
     ExprAnd,
     ExprNot,
     ExprOr,
-    Program,
     TriggerBetween,
     TriggerDevice,
     TriggerEvent,
     TriggerState,
     TriggerSun,
     TriggerTime,
-    Value,
 )
 
 
@@ -75,42 +67,43 @@ SERVICE_CATALOG = {
 }
 
 
-@dataclass
 class SemanticContext:
-    symbols: Dict[str, EntityDecl]
-    errors: List[str]
+    # Guarda simbolos e erros da analise semantica.
+    def __init__(self, symbols, errors):
+        self.symbols = symbols
+        self.errors = errors
 
 
 class SemanticAnalyzer:
-    def analyze(self, program: Program) -> SemanticContext:
-        symbols: Dict[str, EntityDecl] = {}
-        errors: List[str] = []
+    # Analisa o programa e retorna contexto semantico.
+    def analyze(self, program):
+        symbols = {}
+        errors = []
 
         for decl in program.entities:
-            if decl.alias in symbols:
-                errors.append(
-                    f"[Semantico] Linha {decl.line}: alias '{decl.alias}' duplicado"
-                )
-                continue
-            domain = self._domain_from_entity_id(decl.entity_id)
-            if not domain:
-                errors.append(
-                    f"[Semantico] Linha {decl.line}: entity_id invalido '{decl.entity_id}'"
-                )
-            else:
-                allowed = TYPE_DOMAINS.get(decl.type_name, set())
-                if allowed and domain not in allowed:
-                    errors.append(
-                        f"[Semantico] Linha {decl.line}: tipo '{decl.type_name}' nao compativel com dominio '{domain}'"
-                    )
-            symbols[decl.alias] = decl
-
+            self._check_declaration(decl, symbols, errors)
         for automation in program.automations:
             self._check_automation(automation, symbols, errors)
 
-        return SemanticContext(symbols=symbols, errors=errors)
+        return SemanticContext(symbols, errors)
 
-    def _check_automation(self, automation: Automation, symbols: Dict[str, EntityDecl], errors: List[str]) -> None:
+    # Valida uma declaracao de entidade.
+    def _check_declaration(self, decl, symbols, errors):
+        if decl.alias in symbols:
+            errors.append(f"[Semantico] Linha {decl.line}: alias '{decl.alias}' duplicado")
+            return
+
+        domain = self._domain_from_entity_id(decl.entity_id)
+        if not domain:
+            errors.append(f"[Semantico] Linha {decl.line}: entity_id invalido '{decl.entity_id}'")
+        elif domain not in TYPE_DOMAINS.get(decl.type_name, set()):
+            errors.append(
+                f"[Semantico] Linha {decl.line}: tipo '{decl.type_name}' nao compativel com dominio '{domain}'"
+            )
+        symbols[decl.alias] = decl
+
+    # Valida uma automacao.
+    def _check_automation(self, automation, symbols, errors):
         for trigger in automation.triggers:
             self._check_trigger(trigger, symbols, errors)
         if automation.condition:
@@ -118,13 +111,12 @@ class SemanticAnalyzer:
         for action in automation.actions:
             self._check_action(action, symbols, errors)
         if automation.mode and automation.mode not in {"single", "restart", "queued", "parallel"}:
-            errors.append(
-                f"[Semantico] Linha {automation.line}: modo invalido '{automation.mode}'"
-            )
+            errors.append(f"[Semantico] Linha {automation.line}: modo invalido '{automation.mode}'")
 
-    def _check_trigger(self, trigger: object, symbols: Dict[str, EntityDecl], errors: List[str]) -> None:
+    # Valida um gatilho.
+    def _check_trigger(self, trigger, symbols, errors):
         if isinstance(trigger, TriggerState):
-            entity_id, type_name = self._resolve_entity(trigger.entity, symbols, errors)
+            _, type_name = self._resolve_entity(trigger.entity, symbols, errors)
             self._check_comparison(trigger.operator, trigger.to_state, trigger.line, errors)
             self._check_state_value(type_name, trigger.to_state, trigger.line, errors)
         elif isinstance(trigger, TriggerDevice):
@@ -132,123 +124,142 @@ class SemanticAnalyzer:
         elif isinstance(trigger, (TriggerEvent, TriggerTime, TriggerBetween, TriggerSun)):
             return
 
-    def _check_expr(self, expr: object, symbols: Dict[str, EntityDecl], errors: List[str]) -> None:
+    # Valida uma expressao condicional.
+    def _check_expr(self, expr, symbols, errors):
         if isinstance(expr, ConditionAtom):
-            kind = expr.kind
-            if kind in {"state", "device"}:
-                entity = expr.data.get("entity")
-                state = expr.data.get("state")
-                operator = expr.data.get("operator", "esta")
-                self._check_comparison(operator, state, expr.line, errors)
-                if isinstance(entity, EntityRef):
-                    _, type_name = self._resolve_entity(entity, symbols, errors)
-                    self._check_state_value(type_name, state, expr.line, errors)
-        elif isinstance(expr, ExprAnd) or isinstance(expr, ExprOr):
+            self._check_atom(expr, symbols, errors)
+        elif isinstance(expr, (ExprAnd, ExprOr)):
             for item in expr.items:
                 self._check_expr(item, symbols, errors)
         elif isinstance(expr, ExprNot):
             self._check_expr(expr.item, symbols, errors)
 
-    def _check_action(self, action: object, symbols: Dict[str, EntityDecl], errors: List[str]) -> None:
-        if isinstance(action, ActionTurn):
-            _, type_name = self._resolve_entity(action.entity, symbols, errors)
-            if type_name not in {"luz", "interruptor", "midia", "cortina", "clima"}:
-                errors.append(
-                    f"[Semantico] Linha {action.line}: acao ligar/desligar invalida para tipo '{type_name}'"
-                )
-        elif isinstance(action, ActionDelay):
+    # Valida uma condicao simples.
+    def _check_atom(self, atom, symbols, errors):
+        if atom.kind not in {"state", "device"}:
             return
-        elif isinstance(action, ActionNotify):
+
+        entity = atom.data.get("entity")
+        state = atom.data.get("state")
+        operator = atom.data.get("operator", "esta")
+        self._check_comparison(operator, state, atom.line, errors)
+
+        if isinstance(entity, EntityRef):
+            _, type_name = self._resolve_entity(entity, symbols, errors)
+            self._check_state_value(type_name, state, atom.line, errors)
+
+    # Valida uma acao.
+    def _check_action(self, action, symbols, errors):
+        if isinstance(action, ActionTurn):
+            self._check_turn_action(action, symbols, errors)
+        elif isinstance(action, (ActionDelay, ActionNotify)):
             return
         elif isinstance(action, ActionTimer):
-            _, type_name = self._resolve_entity(action.entity, symbols, errors)
-            if type_name != "timer":
-                errors.append(
-                    f"[Semantico] Linha {action.line}: acao timer invalida para tipo '{type_name}'"
-                )
+            self._check_timer_action(action, symbols, errors)
         elif isinstance(action, ActionService):
-            domain = action.domain
-            service = action.service
-            if domain not in SERVICE_CATALOG:
-                errors.append(
-                    f"[Semantico] Linha {action.line}: dominio de servico desconhecido '{domain}'"
-                )
-            else:
-                if service not in SERVICE_CATALOG[domain]:
-                    errors.append(
-                        f"[Semantico] Linha {action.line}: servico '{service}' nao existe no dominio '{domain}'"
-                    )
-            entity_arg = action.args.get("entity_id")
-            if entity_arg:
-                ent_id = self._value_to_entity_id(entity_arg, symbols, errors)
-                if ent_id:
-                    ent_domain = self._domain_from_entity_id(ent_id)
-                    if ent_domain and ent_domain != domain:
-                        errors.append(
-                            f"[Semantico] Linha {action.line}: entity_id '{ent_id}' nao compativel com dominio '{domain}'"
-                        )
+            self._check_service_action(action, symbols, errors)
         elif isinstance(action, ActionIf):
-            self._check_expr(action.condition, symbols, errors)
-            for act in action.then_actions:
-                self._check_action(act, symbols, errors)
-            if action.else_actions:
-                for act in action.else_actions:
-                    self._check_action(act, symbols, errors)
+            self._check_if_action(action, symbols, errors)
         elif isinstance(action, ActionChoose):
-            for case in action.cases:
-                self._check_expr(case.condition, symbols, errors)
-                for act in case.actions:
-                    self._check_action(act, symbols, errors)
-            if action.default_actions:
-                for act in action.default_actions:
-                    self._check_action(act, symbols, errors)
+            self._check_choose_action(action, symbols, errors)
 
-    def _resolve_entity(self, ref: EntityRef, symbols: Dict[str, EntityDecl], errors: List[str]) -> Tuple[str, str]:
+    # Valida acao ligar ou desligar.
+    def _check_turn_action(self, action, symbols, errors):
+        _, type_name = self._resolve_entity(action.entity, symbols, errors)
+        if type_name not in {"luz", "interruptor", "midia", "cortina", "clima"}:
+            errors.append(
+                f"[Semantico] Linha {action.line}: acao ligar/desligar invalida para tipo '{type_name}'"
+            )
+
+    # Valida acao timer.
+    def _check_timer_action(self, action, symbols, errors):
+        _, type_name = self._resolve_entity(action.entity, symbols, errors)
+        if type_name != "timer":
+            errors.append(f"[Semantico] Linha {action.line}: acao timer invalida para tipo '{type_name}'")
+
+    # Valida chamada de servico.
+    def _check_service_action(self, action, symbols, errors):
+        if action.domain not in SERVICE_CATALOG:
+            errors.append(f"[Semantico] Linha {action.line}: dominio de servico desconhecido '{action.domain}'")
+        elif action.service not in SERVICE_CATALOG[action.domain]:
+            errors.append(
+                f"[Semantico] Linha {action.line}: servico '{action.service}' nao existe no dominio '{action.domain}'"
+            )
+
+        entity_arg = action.args.get("entity_id")
+        if entity_arg:
+            self._check_service_entity(action, entity_arg, symbols, errors)
+
+    # Valida entity_id passado para servico.
+    def _check_service_entity(self, action, entity_arg, symbols, errors):
+        ent_id = self._value_to_entity_id(entity_arg, symbols, errors)
+        ent_domain = self._domain_from_entity_id(ent_id) if ent_id else None
+        if ent_domain and ent_domain != action.domain:
+            errors.append(
+                f"[Semantico] Linha {action.line}: entity_id '{ent_id}' nao compativel com dominio '{action.domain}'"
+            )
+
+    # Valida acao se.
+    def _check_if_action(self, action, symbols, errors):
+        self._check_expr(action.condition, symbols, errors)
+        for item in action.then_actions:
+            self._check_action(item, symbols, errors)
+        if action.else_actions:
+            for item in action.else_actions:
+                self._check_action(item, symbols, errors)
+
+    # Valida acao escolha.
+    def _check_choose_action(self, action, symbols, errors):
+        for case in action.cases:
+            self._check_expr(case.condition, symbols, errors)
+            for item in case.actions:
+                self._check_action(item, symbols, errors)
+        if action.default_actions:
+            for item in action.default_actions:
+                self._check_action(item, symbols, errors)
+
+    # Resolve alias ou entity_id.
+    def _resolve_entity(self, ref, symbols, errors):
         if ref.is_entity_id:
             domain = self._domain_from_entity_id(ref.name)
-            type_name = DOMAIN_TYPES.get(domain, "desconhecido")
-            return ref.name, type_name
+            return ref.name, DOMAIN_TYPES.get(domain, "desconhecido")
         if ref.name not in symbols:
-            errors.append(
-                f"[Semantico] Linha {ref.line}: alias '{ref.name}' nao declarado"
-            )
+            errors.append(f"[Semantico] Linha {ref.line}: alias '{ref.name}' nao declarado")
             return ref.name, "desconhecido"
         decl = symbols[ref.name]
         return decl.entity_id, decl.type_name
 
-    def _value_to_entity_id(self, value: Value, symbols: Dict[str, EntityDecl], errors: List[str]) -> Optional[str]:
+    # Extrai entity_id de um valor.
+    def _value_to_entity_id(self, value, symbols, errors):
         if value.kind == "entity" and isinstance(value.value, EntityRef):
             return self._resolve_entity(value.value, symbols, errors)[0]
         if value.kind == "ident":
-            fake_ref = EntityRef(name=value.value, is_entity_id=False, line=value.line)
-            return self._resolve_entity(fake_ref, symbols, errors)[0]
+            ref = EntityRef(value.value, False, value.line)
+            return self._resolve_entity(ref, symbols, errors)[0]
         if value.kind == "string":
             return value.value
         return None
 
-    def _check_state_value(self, type_name: str, state: object, line: int, errors: List[str]) -> None:
+    # Valida valor de estado.
+    def _check_state_value(self, type_name, state, line, errors):
         if type_name == "desconhecido":
             return
         if isinstance(state, (int, float)):
-            if type_name not in {"sensor"}:
-                errors.append(
-                    f"[Semantico] Linha {line}: valor numerico invalido para tipo '{type_name}'"
-                )
+            if type_name != "sensor":
+                errors.append(f"[Semantico] Linha {line}: valor numerico invalido para tipo '{type_name}'")
             return
-        if isinstance(state, str):
-            allowed = ALLOWED_STATES.get(type_name)
-            if allowed and state not in allowed:
-                errors.append(
-                    f"[Semantico] Linha {line}: estado '{state}' invalido para tipo '{type_name}'"
-                )
 
-    def _check_comparison(self, operator: str, value: object, line: int, errors: List[str]) -> None:
+        allowed = ALLOWED_STATES.get(type_name)
+        if isinstance(state, str) and allowed and state not in allowed:
+            errors.append(f"[Semantico] Linha {line}: estado '{state}' invalido para tipo '{type_name}'")
+
+    # Valida operador de comparacao.
+    def _check_comparison(self, operator, value, line, errors):
         if operator in {">", "<", ">=", "<="} and not isinstance(value, (int, float)):
-            errors.append(
-                f"[Semantico] Linha {line}: operador '{operator}' exige valor numerico"
-            )
+            errors.append(f"[Semantico] Linha {line}: operador '{operator}' exige valor numerico")
 
-    def _domain_from_entity_id(self, entity_id: str) -> Optional[str]:
+    # Extrai dominio de um entity_id.
+    def _domain_from_entity_id(self, entity_id):
         if "." not in entity_id:
             return None
         return entity_id.split(".", 1)[0]

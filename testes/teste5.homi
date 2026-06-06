@@ -1,0 +1,11 @@
+automacao "Luz colorida programada" {
+  quando evento botao_colorido;
+  entao {
+    servico light.turn_on(
+      entity_id = light.sala,
+      brightness = 128,
+      rgb_color = [255, 100, 50],
+      transition = 2.5
+    );
+  }
+}

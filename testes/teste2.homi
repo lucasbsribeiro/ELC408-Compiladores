@@ -1,0 +1,8 @@
+automacao "Alerta de movimento" {
+  quando sensor.sala == on ou sensor.cozinha == on;
+  entao {
+    notificar "Movimento detectado!";
+    esperar 30s;
+    notificar "Fim do movimento";
+  }
+}

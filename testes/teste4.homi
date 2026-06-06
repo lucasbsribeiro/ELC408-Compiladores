@@ -1,0 +1,22 @@
+entidades {
+  sensor temperatura = sensor.temp_sala;
+  clima aquecedor = climate.termoventilador;
+}
+
+automacao "Controle de temperatura" {
+  quando temperatura < 18;
+  entao {
+    escolha {
+      caso temperatura < 15 -> {
+        ligar aquecedor;
+        notificar "Frio intenso – aquecedor ligado";
+      }
+      caso temperatura < 18 -> {
+        notificar "Temperatura baixa, mas confortável";
+      }
+      senao {
+        desligar aquecedor;
+      }
+    }
+  }
+}

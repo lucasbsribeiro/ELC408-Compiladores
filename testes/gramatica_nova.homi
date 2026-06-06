@@ -1,0 +1,21 @@
+entidades {
+  sensor temp = sensor.temp;
+  luz sala = light.sala;
+  interruptor botao = switch.botao;
+}
+
+automacao "Completa" {
+  quando dispositivo botao pressionado por 2s ou entre 08:00 e 09:00;
+  se temp >= 25 e nao (sala esta on);
+  entao {
+    escolha {
+      caso temp > 30 -> {
+        notificar "Quente";
+      }
+      senao {
+        esperar 1min;
+      }
+    };
+  }
+  modo restart;
+}

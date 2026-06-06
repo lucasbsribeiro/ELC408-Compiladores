@@ -1,0 +1,34 @@
+- id: '1780769878200'
+  alias: 'Controle de temperatura'
+  description: ''
+  triggers:
+    - trigger: 'numeric_state'
+      entity_id: 'sensor.temp_sala'
+      below: 18
+  conditions:
+  actions:
+    - choose:
+        - conditions:
+            - condition: 'numeric_state'
+              entity_id: 'sensor.temp_sala'
+              below: 15
+          sequence:
+            - action: 'climate.turn_on'
+              target:
+                entity_id: 'climate.termoventilador'
+            - action: 'notify.notify'
+              data:
+                message: 'Frio intenso – aquecedor ligado'
+        - conditions:
+            - condition: 'numeric_state'
+              entity_id: 'sensor.temp_sala'
+              below: 18
+          sequence:
+            - action: 'notify.notify'
+              data:
+                message: 'Temperatura baixa, mas confortável'
+      default:
+        - action: 'climate.turn_off'
+          target:
+            entity_id: 'climate.termoventilador'
+  mode: 'single'

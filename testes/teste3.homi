@@ -1,0 +1,16 @@
+entidades {
+  sensor presenca = binary_sensor.quarto;
+  luz quarto = light.quarto;
+}
+
+automacao "Controle de presença" {
+  quando presenca == on;
+  entao {
+    se quarto != on entao {
+      ligar quarto;
+    } senao {
+      notificar "Luz já está ligada";
+    }
+  }
+  modo restart;
+}

@@ -1,5 +1,3 @@
-from typing import Any, Dict, List, Optional, Set
-
 from .ast import (
     ActionChoose,
     ActionDelay,
@@ -26,277 +24,55 @@ from .ast import (
     TriggerTime,
     Value,
 )
-from .lexer import Token
 
-
-EPSILON = "epsilon"
 
 TYPE_TOKENS = {
-    "luz",
-    "sensor",
-    "interruptor",
-    "alarme",
-    "timer",
-    "clima",
-    "midia",
-    "cortina",
-    "cena",
-    "grupo",
+    "luz", "sensor", "interruptor", "alarme", "timer",
+    "clima", "midia", "cortina", "cena", "grupo",
 }
 
 MODE_TOKENS = {"single", "restart", "queued", "parallel"}
-
 COMPARISON_TOKENS = {"OP_EQ", "OP_NE", "OP_GT", "OP_LT", "OP_GE", "OP_LE", "esta"}
-
 DEVICE_EVENT_TOKENS = {"pressionado", "girado", "movido"}
-
-ACTION_START_TOKENS = {
-    "ligar",
-    "desligar",
-    "esperar",
-    "notificar",
-    "timer",
-    "servico",
-    "se",
-    "escolha",
-}
-
-VALUE_START = {
-    "STRING",
-    "NUMBER",
-    "BOOLEAN",
-    "DURATION",
-    "TIME",
-    "ENTITY_ID",
-    "IDENT",
-    "LBRACKET",
-    "LBRACE",
-}
-
-
-PREDICTIVE_TABLE: Dict[str, Dict[str, str]] = {
-    "bloco_entidades_opt": {
-        "entidades": "bloco_entidades",
-        "automacao": EPSILON,
-        "EOF": EPSILON,
-    },
-    "lista_declaracoes": {**{tok: "declaracao" for tok in TYPE_TOKENS}, "RBRACE": EPSILON},
-    "lista_automacoes": {"automacao": "automacao", "EOF": EPSILON},
-    "lista_gatilhos_tail": {"ou": "ou_gatilho", "SEMICOLON": EPSILON},
-    "gatilho": {
-        "IDENT": "gatilho_estado",
-        "ENTITY_ID": "gatilho_estado",
-        "evento": "gatilho_evento",
-        "hora": "gatilho_tempo",
-        "entre": "gatilho_tempo",
-        "por_do_sol": "gatilho_sol",
-        "nascer_do_sol": "gatilho_sol",
-        "dispositivo": "gatilho_dispositivo",
-    },
-    "gatilho_tempo": {"hora": "gatilho_hora", "entre": "gatilho_entre"},
-    "gatilho_sol": {"por_do_sol": "sunset", "nascer_do_sol": "sunrise"},
-    "janela_opt": {
-        "por": "janela_por",
-        "SEMICOLON": EPSILON,
-        "ou": EPSILON,
-        "se": EPSILON,
-        "entao": EPSILON,
-        "modo": EPSILON,
-        "RBRACE": EPSILON,
-    },
-    "offset_opt": {
-        "PLUS": "offset_plus",
-        "MINUS": "offset_minus",
-        "SEMICOLON": EPSILON,
-        "ou": EPSILON,
-        "se": EPSILON,
-        "entao": EPSILON,
-        "modo": EPSILON,
-        "RBRACE": EPSILON,
-    },
-    "bloco_se_opt": {"se": "bloco_se", "entao": EPSILON},
-    "expr_or_tail": {
-        "ou": "expr_or_tail",
-        "ARROW": EPSILON,
-        "SEMICOLON": EPSILON,
-        "entao": EPSILON,
-        "senao": EPSILON,
-        "RPAREN": EPSILON,
-    },
-    "expr_and_tail": {
-        "e": "expr_and_tail",
-        "ARROW": EPSILON,
-        "ou": EPSILON,
-        "SEMICOLON": EPSILON,
-        "entao": EPSILON,
-        "senao": EPSILON,
-        "RPAREN": EPSILON,
-    },
-    "expr_not": {
-        "nao": "expr_not_nao",
-        "LPAREN": "expr_not_prim",
-        "hora": "expr_not_prim",
-        "sol": "expr_not_prim",
-        "dispositivo": "expr_not_prim",
-        "IDENT": "expr_not_prim",
-        "ENTITY_ID": "expr_not_prim",
-    },
-    "prim_cond": {
-        "LPAREN": "prim_group",
-        "hora": "prim_cond",
-        "sol": "prim_cond",
-        "dispositivo": "prim_cond",
-        "IDENT": "prim_cond",
-        "ENTITY_ID": "prim_cond",
-    },
-    "condicao": {
-        "hora": "condicao_tempo",
-        "sol": "condicao_sol",
-        "dispositivo": "condicao_dispositivo",
-        "IDENT": "condicao_estado",
-        "ENTITY_ID": "condicao_estado",
-    },
-    "condicao_tempo_tail": {
-        "entre": "tempo_entre",
-        "depois": "tempo_depois",
-        "antes": "tempo_antes",
-    },
-    "operador_comparacao": {
-        "OP_EQ": "op",
-        "OP_NE": "op",
-        "OP_GT": "op",
-        "OP_LT": "op",
-        "OP_GE": "op",
-        "OP_LE": "op",
-        "esta": "op",
-    },
-    "lista_acoes_tail": {
-        "SEMICOLON": "acao_tail",
-        "senao": EPSILON,
-        "caso": EPSILON,
-        "modo": EPSILON,
-        "RBRACE": EPSILON,
-    },
-    "acao": {
-        "ligar": "acao_ligar",
-        "desligar": "acao_desligar",
-        "esperar": "acao_esperar",
-        "notificar": "acao_notificar",
-        "timer": "acao_timer",
-        "servico": "acao_servico",
-        "se": "acao_se",
-        "escolha": "acao_escolha",
-    },
-    "acao_timer_tipo": {
-        "iniciar": "timer_iniciar",
-        "parar": "timer_parar",
-        "finalizar": "timer_finalizar",
-    },
-    "args_opt": {"IDENT": "args", "RPAREN": EPSILON},
-    "args_tail": {"COMMA": "args_tail", "RPAREN": EPSILON},
-    "lista_casos": {"caso": "caso", "senao": EPSILON, "RBRACE": EPSILON},
-    "senao_opt": {"senao": "senao", "RBRACE": EPSILON},
-    "bloco_modo_opt": {"modo": "bloco_modo", "RBRACE": EPSILON},
-    "modo": {**{tok: "modo" for tok in MODE_TOKENS}, "IDENT": "modo"},
-    "ref_entidade": {"IDENT": "ref_ident", "ENTITY_ID": "ref_entity_id"},
-    "valor": {
-        "STRING": "valor_string",
-        "NUMBER": "valor_number",
-        "BOOLEAN": "valor_boolean",
-        "DURATION": "valor_duration",
-        "TIME": "valor_time",
-        "ENTITY_ID": "valor_entity",
-        "IDENT": "valor_ident",
-        "LBRACKET": "valor_list",
-        "LBRACE": "valor_map",
-    },
-    "lista_valores_opt": {**{tok: "lista_valores" for tok in VALUE_START}, "RBRACKET": EPSILON},
-    "lista_valores_tail": {"COMMA": "lista_valores_tail", "RBRACKET": EPSILON},
-    "mapa_itens_opt": {"IDENT": "mapa_itens", "RBRACE": EPSILON},
-    "mapa_itens_tail": {"COMMA": "mapa_itens_tail", "RBRACE": EPSILON},
-    "valor_estado": {
-        "STATE": "estado_state",
-        "STRING": "estado_string",
-        "NUMBER": "estado_number",
-        "IDENT": "estado_ident",
-    },
-}
-
-SYNC_SETS: Dict[str, Set[str]] = {
-    "programa": {"EOF"},
-    "bloco_entidades_opt": {"automacao", "EOF"},
-    "lista_declaracoes": {"RBRACE"},
-    "lista_automacoes": {"EOF"},
-    "lista_gatilhos_tail": {"SEMICOLON", "se", "entao", "modo", "RBRACE"},
-    "gatilho": {"SEMICOLON", "se", "entao", "modo", "RBRACE"},
-    "bloco_se_opt": {"entao", "modo", "RBRACE"},
-    "expr_or_tail": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
-    "expr_and_tail": {"ARROW", "ou", "SEMICOLON", "entao", "senao", "RPAREN"},
-    "expr_not": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
-    "prim_cond": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
-    "condicao": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
-    "condicao_tempo_tail": {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"},
-    "operador_comparacao": {"STATE", "STRING", "NUMBER", "IDENT"},
-    "acao": {"SEMICOLON", "senao", "caso", "RBRACE"},
-    "lista_acoes_tail": {"modo", "RBRACE", "senao", "caso"},
-    "args_opt": {"RPAREN"},
-    "args_tail": {"RPAREN"},
-    "lista_casos": {"senao", "RBRACE"},
-    "senao_opt": {"RBRACE"},
-    "bloco_modo_opt": {"RBRACE"},
-    "modo": {"SEMICOLON"},
-    "valor": {"COMMA", "RPAREN", "SEMICOLON", "RBRACKET", "RBRACE"},
-    "lista_valores_opt": {"RBRACKET"},
-    "lista_valores_tail": {"RBRACKET"},
-    "mapa_itens_opt": {"RBRACE"},
-    "mapa_itens_tail": {"RBRACE"},
-    "ref_entidade": {"SEMICOLON", "RPAREN"},
-    "valor_estado": {"SEMICOLON", "entao", "senao", "RPAREN"},
-}
+ACTION_START_TOKENS = {"ligar", "desligar", "esperar", "notificar", "timer", "servico", "se", "escolha"}
+VALUE_START_TOKENS = {"STRING", "NUMBER", "BOOLEAN", "DURATION", "TIME", "ENTITY_ID", "IDENT", "LBRACKET", "LBRACE"}
 
 
 class Parser:
-    def __init__(self, tokens: List[Token]) -> None:
+    # Prepara o parser com a lista de tokens.
+    def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
-        self.errors: List[str] = []
+        self.errors = []
 
-    def parse(self) -> Program:
+    # Analisa o programa completo.
+    def parse(self):
         program = self._parse_program()
         if not self._check("EOF"):
             self._error_at(self._current(), "tokens inesperados no fim do arquivo")
         return program
 
-    def _parse_program(self) -> Program:
-        entities = self._parse_bloco_entidades_opt()
-        automations = self._parse_lista_automacoes()
-        return Program(entities=entities, automations=automations)
+    # Analisa entidades opcionais e automacoes.
+    def _parse_program(self):
+        return Program(
+            entities=self._parse_entities_block() if self._check("entidades") else [],
+            automations=self._parse_automations(),
+        )
 
-    def _parse_bloco_entidades_opt(self) -> List[EntityDecl]:
-        prod = self._predict("bloco_entidades_opt")
-        if prod == "bloco_entidades":
-            return self._parse_entities_block()
-        return []
-
-    def _parse_entities_block(self) -> List[EntityDecl]:
+    # Analisa o bloco entidades.
+    def _parse_entities_block(self):
         self._expect("entidades", {"LBRACE"})
         self._expect("LBRACE", {"RBRACE"})
-        decls = self._parse_lista_declaracoes()
-        self._expect("RBRACE", {"automacao", "EOF"})
-        return decls
-
-    def _parse_lista_declaracoes(self) -> List[EntityDecl]:
-        decls: List[EntityDecl] = []
-        while True:
-            prod = self._predict("lista_declaracoes")
-            if prod == EPSILON or prod is None:
-                break
+        decls = []
+        while self._check_any(TYPE_TOKENS):
             decl = self._parse_declaration()
             if decl:
                 decls.append(decl)
+        self._expect("RBRACE", {"automacao", "EOF"})
         return decls
 
-    def _parse_declaration(self) -> Optional[EntityDecl]:
+    # Analisa uma declaracao de entidade.
+    def _parse_declaration(self):
         type_tok = self._expect_any(TYPE_TOKENS, {"IDENT", "ASSIGN", "ENTITY_ID", "SEMICOLON", "RBRACE"})
         alias_tok = self._expect("IDENT", {"ASSIGN", "SEMICOLON", "RBRACE"})
         self._expect("ASSIGN", {"ENTITY_ID", "SEMICOLON"})
@@ -305,311 +81,252 @@ class Parser:
 
         if not type_tok or not alias_tok or not entity_tok:
             return None
-        return EntityDecl(
-            type_name=type_tok.lexeme,
-            alias=alias_tok.lexeme,
-            entity_id=entity_tok.lexeme,
-            line=type_tok.line,
-        )
+        return EntityDecl(type_tok.lexeme, alias_tok.lexeme, entity_tok.lexeme, type_tok.line)
 
-    def _parse_lista_automacoes(self) -> List[Automation]:
-        automations: List[Automation] = []
-        while True:
-            prod = self._predict("lista_automacoes")
-            if prod == EPSILON or prod is None:
-                break
+    # Analisa todas as automacoes.
+    def _parse_automations(self):
+        automations = []
+        while self._check("automacao"):
             automation = self._parse_automation()
             if automation:
                 automations.append(automation)
         return automations
 
-    def _parse_automation(self) -> Optional[Automation]:
+    # Analisa uma automacao.
+    def _parse_automation(self):
         start_tok = self._expect("automacao", {"STRING"})
         name_tok = self._expect("STRING", {"LBRACE"})
         self._expect("LBRACE", {"quando", "RBRACE"})
 
         triggers = self._parse_quando()
-        condition = self._parse_bloco_se_opt()
+        condition = self._parse_optional_se()
         actions = self._parse_entao()
-        mode = self._parse_bloco_modo_opt()
+        mode = self._parse_optional_modo()
         self._expect("RBRACE", {"automacao", "EOF"})
 
         if not start_tok or not name_tok:
             return None
-        return Automation(
-            name=name_tok.lexeme,
-            triggers=triggers,
-            condition=condition,
-            actions=actions,
-            mode=mode,
-            line=start_tok.line,
-        )
+        return Automation(name_tok.lexeme, triggers, condition, actions, mode, start_tok.line)
 
-    def _parse_quando(self) -> List[Any]:
+    # Analisa o bloco quando.
+    def _parse_quando(self):
         self._expect("quando", {"SEMICOLON"})
-        triggers = self._parse_lista_gatilhos()
+        triggers = [self._parse_trigger()]
+        while self._match("ou"):
+            triggers.append(self._parse_trigger())
         self._expect("SEMICOLON", {"se", "entao", "modo", "RBRACE"})
-        return triggers
+        return [trigger for trigger in triggers if trigger]
 
-    def _parse_lista_gatilhos(self) -> List[Any]:
-        triggers: List[Any] = []
-        trigger = self._parse_trigger()
-        if trigger:
-            triggers.append(trigger)
-        while True:
-            prod = self._predict("lista_gatilhos_tail")
-            if prod == EPSILON or prod is None:
-                break
-            self._expect("ou", {"SEMICOLON"})
-            trigger = self._parse_trigger()
-            if trigger:
-                triggers.append(trigger)
-        return triggers
-
-    def _parse_trigger(self) -> Optional[Any]:
-        prod = self._predict("gatilho")
-        if prod == "gatilho_estado":
+    # Analisa um gatilho.
+    def _parse_trigger(self):
+        if self._check_any({"IDENT", "ENTITY_ID"}):
             return self._parse_state_trigger()
-        if prod == "gatilho_evento":
+        if self._check("evento"):
             return self._parse_event_trigger()
-        if prod == "gatilho_tempo":
+        if self._check_any({"hora", "entre"}):
             return self._parse_time_trigger()
-        if prod == "gatilho_sol":
+        if self._check_any({"por_do_sol", "nascer_do_sol"}):
             return self._parse_sun_trigger()
-        if prod == "gatilho_dispositivo":
+        if self._check("dispositivo"):
             return self._parse_device_trigger()
+
+        self._error_at(self._current(), "gatilho invalido")
+        self._panic({"SEMICOLON", "se", "entao", "modo", "RBRACE"})
         return None
 
-    def _parse_state_trigger(self) -> Optional[TriggerState]:
+    # Analisa um gatilho de estado.
+    def _parse_state_trigger(self):
         ref = self._parse_entity_ref()
         operator = self._parse_comparison_operator()
         state = self._parse_state_value()
-        duration = self._parse_janela_opt()
-        if not ref:
-            return None
-        return TriggerState(entity=ref, operator=operator, to_state=state, duration=duration, line=ref.line)
+        duration = self._parse_optional_duration_window()
+        return TriggerState(ref, operator, state, duration, ref.line)
 
-    def _parse_event_trigger(self) -> Optional[TriggerEvent]:
+    # Analisa um gatilho de evento.
+    def _parse_event_trigger(self):
         start = self._expect("evento", {"IDENT"})
         name_tok = self._expect("IDENT", {"SEMICOLON"})
         if not start or not name_tok:
             return None
-        return TriggerEvent(event_name=name_tok.lexeme, line=start.line)
+        return TriggerEvent(name_tok.lexeme, start.line)
 
-    def _parse_time_trigger(self) -> Optional[Any]:
-        prod = self._predict("gatilho_tempo")
-        if prod == "gatilho_hora":
-            start = self._expect("hora", {"TIME"})
+    # Analisa um gatilho de horario.
+    def _parse_time_trigger(self):
+        if self._match("hora"):
             time_tok = self._expect("TIME", {"SEMICOLON"})
-            if not start or not time_tok:
+            if not time_tok:
                 return None
-            return TriggerTime(time=time_tok.lexeme, line=start.line)
-        if prod == "gatilho_entre":
-            start = self._expect("entre", {"TIME"})
-            start_time = self._expect("TIME", {"e"})
-            self._expect("e", {"TIME"})
-            end_time = self._expect("TIME", {"SEMICOLON"})
-            if not start or not start_time or not end_time:
-                return None
-            return TriggerBetween(start=start_time.lexeme, end=end_time.lexeme, line=start.line)
-        return None
+            return TriggerTime(time_tok.lexeme, time_tok.line)
 
-    def _parse_sun_trigger(self) -> Optional[TriggerSun]:
-        prod = self._predict("gatilho_sol")
+        start = self._expect("entre", {"TIME"})
+        start_time = self._expect("TIME", {"e"})
+        self._expect("e", {"TIME"})
+        end_time = self._expect("TIME", {"SEMICOLON"})
+        if not start or not start_time or not end_time:
+            return None
+        return TriggerBetween(start_time.lexeme, end_time.lexeme, start.line)
+
+    # Analisa um gatilho solar.
+    def _parse_sun_trigger(self):
         tok = self._expect_any({"por_do_sol", "nascer_do_sol"}, {"SEMICOLON", "por", "entao", "modo", "RBRACE"})
         if not tok:
             return None
-        offset, offset_sign = self._parse_offset_opt()
-        event = "sunset" if prod == "sunset" else "sunrise"
-        return TriggerSun(event=event, offset=offset, offset_sign=offset_sign, line=tok.line)
+        offset, sign = self._parse_optional_offset()
+        event = "sunset" if tok.type == "por_do_sol" else "sunrise"
+        return TriggerSun(event, offset, sign, tok.line)
 
-    def _parse_device_trigger(self) -> Optional[TriggerDevice]:
+    # Analisa um gatilho de dispositivo.
+    def _parse_device_trigger(self):
         start = self._expect("dispositivo", {"IDENT", "ENTITY_ID"})
         ref = self._parse_entity_ref()
         event_tok = self._expect_any(DEVICE_EVENT_TOKENS, {"por", "SEMICOLON"})
-        duration = self._parse_janela_opt()
-        if not start or not ref or not event_tok:
+        duration = self._parse_optional_duration_window()
+        if not start or not event_tok:
             return None
-        return TriggerDevice(entity=ref, event=event_tok.lexeme, duration=duration, line=start.line)
+        return TriggerDevice(ref, event_tok.lexeme, duration, start.line)
 
-    def _parse_janela_opt(self) -> Optional[Duration]:
-        prod = self._predict("janela_opt")
-        if prod == "janela_por":
-            self._expect("por", {"DURATION"})
+    # Analisa uma janela opcional com por.
+    def _parse_optional_duration_window(self):
+        if self._match("por"):
             return self._parse_duration()
         return None
 
-    def _parse_offset_opt(self) -> tuple[Optional[Duration], Optional[str]]:
-        prod = self._predict("offset_opt")
-        if prod == "offset_plus":
-            self._expect("PLUS", {"DURATION"})
+    # Analisa um offset solar opcional.
+    def _parse_optional_offset(self):
+        if self._match("PLUS"):
             return self._parse_duration(), "+"
-        if prod == "offset_minus":
-            self._expect("MINUS", {"DURATION"})
+        if self._match("MINUS"):
             return self._parse_duration(), "-"
         return None, None
 
-    def _parse_bloco_se_opt(self) -> Optional[Any]:
-        prod = self._predict("bloco_se_opt")
-        if prod == "bloco_se":
-            return self._parse_se()
-        return None
-
-    def _parse_se(self) -> Optional[Any]:
+    # Analisa o bloco se opcional da automacao.
+    def _parse_optional_se(self):
+        if not self._check("se"):
+            return None
         self._expect("se", {"SEMICOLON"})
         expr = self._parse_expr_or()
         self._expect("SEMICOLON", {"entao", "modo", "RBRACE"})
         return expr
 
-    def _parse_entao(self) -> List[Any]:
+    # Analisa o bloco entao.
+    def _parse_entao(self):
         self._expect("entao", {"LBRACE"})
         return self._parse_action_block({"modo", "RBRACE"})
 
-    def _parse_bloco_modo_opt(self) -> Optional[str]:
-        prod = self._predict("bloco_modo_opt")
-        if prod == "bloco_modo":
-            return self._parse_modo()
-        return None
-
-    def _parse_modo(self) -> Optional[str]:
-        self._expect("modo", {"IDENT", "single", "restart", "queued", "parallel"})
-        prod = self._predict("modo")
-        if prod is None:
+    # Analisa o bloco modo opcional.
+    def _parse_optional_modo(self):
+        if not self._match("modo"):
             return None
         tok = self._expect_any(MODE_TOKENS | {"IDENT"}, {"SEMICOLON"})
         self._expect("SEMICOLON", {"RBRACE"})
-        if not tok:
-            return None
-        return tok.lexeme
+        return tok.lexeme if tok else None
 
-    def _parse_expr_or(self) -> Any:
-        left = self._parse_expr_and()
-        items = [left]
-        while True:
-            prod = self._predict("expr_or_tail")
-            if prod == EPSILON or prod is None:
-                break
-            self._expect("ou", {"SEMICOLON", "entao", "senao", "RPAREN"})
+    # Analisa expressoes ligadas por ou.
+    def _parse_expr_or(self):
+        items = [self._parse_expr_and()]
+        while self._match("ou"):
             items.append(self._parse_expr_and())
-        if len(items) == 1:
-            return left
-        return ExprOr(items=items, line=items[0].line)
+        return items[0] if len(items) == 1 else ExprOr(items, items[0].line)
 
-    def _parse_expr_and(self) -> Any:
-        left = self._parse_expr_not()
-        items = [left]
-        while True:
-            prod = self._predict("expr_and_tail")
-            if prod == EPSILON or prod is None:
-                break
-            self._expect("e", {"ou", "SEMICOLON", "entao", "senao", "RPAREN"})
+    # Analisa expressoes ligadas por e.
+    def _parse_expr_and(self):
+        items = [self._parse_expr_not()]
+        while self._match("e"):
             items.append(self._parse_expr_not())
-        if len(items) == 1:
-            return left
-        return ExprAnd(items=items, line=items[0].line)
+        return items[0] if len(items) == 1 else ExprAnd(items, items[0].line)
 
-    def _parse_expr_not(self) -> Any:
-        prod = self._predict("expr_not")
-        if prod == "expr_not_nao":
-            self._expect("nao", {"LPAREN", "hora", "sol", "dispositivo", "IDENT", "ENTITY_ID"})
+    # Analisa negacao de expressao.
+    def _parse_expr_not(self):
+        if self._match("nao"):
             item = self._parse_expr_not()
-            return ExprNot(item=item, line=item.line)
-        if prod == "expr_not_prim":
-            return self._parse_primary_cond()
-        return ConditionAtom(kind="invalid", data={}, line=self._current().line)
+            return ExprNot(item, item.line)
+        return self._parse_primary_condition()
 
-    def _parse_primary_cond(self) -> Any:
-        prod = self._predict("prim_cond")
-        if prod == "prim_group":
-            self._expect("LPAREN", {"RPAREN"})
+    # Analisa condicao agrupada ou simples.
+    def _parse_primary_condition(self):
+        if self._match("LPAREN"):
             expr = self._parse_expr_or()
             self._expect("RPAREN", {"SEMICOLON", "entao", "senao"})
             return expr
         return self._parse_condition()
 
-    def _parse_condition(self) -> Any:
-        prod = self._predict("condicao")
-        if prod == "condicao_estado":
+    # Analisa uma condicao simples.
+    def _parse_condition(self):
+        if self._check_any({"IDENT", "ENTITY_ID"}):
             return self._parse_state_condition()
-        if prod == "condicao_tempo":
+        if self._check("hora"):
             return self._parse_time_condition()
-        if prod == "condicao_sol":
+        if self._check("sol"):
             return self._parse_sun_condition()
-        if prod == "condicao_dispositivo":
+        if self._check("dispositivo"):
             return self._parse_device_condition()
-        self._error_at(self._current(), "condicao invalida")
-        self._panic({"SEMICOLON", "entao", "senao", "RPAREN"})
-        return ConditionAtom(kind="invalid", data={}, line=self._current().line)
 
-    def _parse_state_condition(self) -> ConditionAtom:
+        self._error_at(self._current(), "condicao invalida")
+        self._panic({"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"})
+        return ConditionAtom("invalid", {}, self._current().line)
+
+    # Analisa condicao de estado.
+    def _parse_state_condition(self):
         ref = self._parse_entity_ref()
         operator = self._parse_comparison_operator()
         state = self._parse_state_value()
-        return ConditionAtom(kind="state", data={"entity": ref, "operator": operator, "state": state}, line=ref.line)
+        return ConditionAtom("state", {"entity": ref, "operator": operator, "state": state}, ref.line)
 
-    def _parse_time_condition(self) -> ConditionAtom:
+    # Analisa condicao de tempo.
+    def _parse_time_condition(self):
         start = self._expect("hora", {"entre", "depois", "antes"})
-        prod = self._predict("condicao_tempo_tail")
-        if prod == "tempo_entre":
-            self._expect("entre", {"TIME"})
-            after_tok = self._expect("TIME", {"e"})
-            self._expect("e", {"TIME"})
-            before_tok = self._expect("TIME", {"SEMICOLON", "entao", "senao", "RPAREN"})
-            return ConditionAtom(
-                kind="time",
-                data={
-                    "after": after_tok.lexeme if after_tok else "",
-                    "before": before_tok.lexeme if before_tok else "",
-                },
-                line=start.line if start else self._current().line,
-            )
-        if prod == "tempo_depois":
-            self._expect("depois", {"TIME"})
-            time_tok = self._expect("TIME", {"SEMICOLON", "entao", "senao", "RPAREN"})
-            return ConditionAtom(
-                kind="time",
-                data={"after": time_tok.lexeme if time_tok else ""},
-                line=start.line if start else self._current().line,
-            )
-        if prod == "tempo_antes":
-            self._expect("antes", {"TIME"})
-            time_tok = self._expect("TIME", {"SEMICOLON", "entao", "senao", "RPAREN"})
-            return ConditionAtom(
-                kind="time",
-                data={"before": time_tok.lexeme if time_tok else ""},
-                line=start.line if start else self._current().line,
-            )
-        self._error_at(self._current(), "condicao de tempo invalida")
-        return ConditionAtom(kind="time", data={}, line=start.line if start else self._current().line)
+        line = start.line if start else self._current().line
 
-    def _parse_sun_condition(self) -> ConditionAtom:
+        if self._match("entre"):
+            after = self._expect("TIME", {"e"})
+            self._expect("e", {"TIME"})
+            before = self._expect("TIME", {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"})
+            return ConditionAtom("time", {
+                "after": after.lexeme if after else "",
+                "before": before.lexeme if before else "",
+            }, line)
+        if self._match("depois"):
+            time_tok = self._expect("TIME", {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"})
+            return ConditionAtom("time", {"after": time_tok.lexeme if time_tok else ""}, line)
+        if self._match("antes"):
+            time_tok = self._expect("TIME", {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"})
+            return ConditionAtom("time", {"before": time_tok.lexeme if time_tok else ""}, line)
+
+        self._error_at(self._current(), "condicao de tempo invalida")
+        return ConditionAtom("time", {}, line)
+
+    # Analisa condicao solar.
+    def _parse_sun_condition(self):
         start = self._expect("sol", {"entre"})
         self._expect("entre", {"por_do_sol"})
         self._expect("por_do_sol", {"e"})
         self._expect("e", {"nascer_do_sol"})
-        self._expect("nascer_do_sol", {"SEMICOLON", "entao", "senao", "RPAREN"})
-        return ConditionAtom(kind="sun", data={}, line=start.line if start else self._current().line)
+        self._expect("nascer_do_sol", {"ARROW", "SEMICOLON", "entao", "senao", "RPAREN"})
+        return ConditionAtom("sun", {}, start.line if start else self._current().line)
 
-    def _parse_device_condition(self) -> ConditionAtom:
+    # Analisa condicao de dispositivo.
+    def _parse_device_condition(self):
         start = self._expect("dispositivo", {"IDENT", "ENTITY_ID"})
         ref = self._parse_entity_ref()
         self._expect("esta", {"STATE", "STRING", "NUMBER", "IDENT"})
         state = self._parse_state_value()
-        return ConditionAtom(kind="device", data={"entity": ref, "state": state}, line=start.line if start else self._current().line)
+        return ConditionAtom("device", {"entity": ref, "state": state}, start.line if start else self._current().line)
 
-    def _parse_comparison_operator(self) -> str:
-        self._predict("operador_comparacao")
+    # Analisa operador de comparacao.
+    def _parse_comparison_operator(self):
         tok = self._expect_any(COMPARISON_TOKENS, {"STATE", "STRING", "NUMBER", "IDENT"})
         return tok.lexeme if tok else "esta"
 
-    def _parse_action_block(self, outer_sync: Set[str]) -> List[Any]:
+    # Analisa um bloco de acoes.
+    def _parse_action_block(self, outer_sync):
         self._expect("LBRACE", {"RBRACE"} | outer_sync)
-        actions = self._parse_action_list({"RBRACE"}, require_trailing=True, allow_empty=True)
+        actions = self._parse_action_list({"RBRACE"}, True, True)
         self._expect("RBRACE", outer_sync)
         return actions
 
-    def _parse_action_list(self, stop_types: Set[str], require_trailing: bool, allow_empty: bool = False) -> List[Any]:
-        actions: List[Any] = []
+    # Analisa uma lista de acoes.
+    def _parse_action_list(self, stop_types, require_trailing, allow_empty=False):
+        actions = []
         if self._check_any(stop_types):
             if not allow_empty:
                 self._error_at(self._current(), "acao esperada")
@@ -621,294 +338,249 @@ class Parser:
 
             if self._match("SEMICOLON"):
                 continue
-
             if self._check_any(stop_types):
                 if require_trailing and self._action_requires_semicolon(action):
                     self._error_at(self._current(), "esperado ';' ao final do bloco de acoes")
                 break
-
             if self._action_requires_semicolon(action):
                 self._error_at(self._current(), "esperado ';' ao final da acao")
-
             if not self._check_any(ACTION_START_TOKENS):
                 break
 
         return actions
 
-    def _action_requires_semicolon(self, action: Any) -> bool:
+    # Diz se a acao exige ponto e virgula.
+    def _action_requires_semicolon(self, action):
         return not isinstance(action, (ActionIf, ActionChoose))
 
-    def _parse_action(self) -> Any:
-        prod = self._predict("acao")
-        if prod == "acao_ligar":
-            self._expect("ligar", {"IDENT", "ENTITY_ID"})
+    # Analisa uma acao.
+    def _parse_action(self):
+        if self._match("ligar"):
             ref = self._parse_entity_ref()
-            return ActionTurn(turn_on=True, entity=ref, line=ref.line)
-        if prod == "acao_desligar":
-            self._expect("desligar", {"IDENT", "ENTITY_ID"})
+            return ActionTurn(True, ref, ref.line)
+        if self._match("desligar"):
             ref = self._parse_entity_ref()
-            return ActionTurn(turn_on=False, entity=ref, line=ref.line)
-        if prod == "acao_esperar":
-            self._expect("esperar", {"DURATION"})
+            return ActionTurn(False, ref, ref.line)
+        if self._match("esperar"):
             duration = self._parse_duration()
-            return ActionDelay(duration=duration, line=duration.line)
-        if prod == "acao_notificar":
-            self._expect("notificar", {"STRING"})
-            msg_tok = self._expect("STRING", {"SEMICOLON"})
-            msg = msg_tok.lexeme if msg_tok else ""
-            return ActionNotify(message=msg, line=msg_tok.line if msg_tok else self._current().line)
-        if prod == "acao_timer":
-            self._expect("timer", {"IDENT", "ENTITY_ID"})
+            return ActionDelay(duration, duration.line)
+        if self._match("notificar"):
+            msg = self._expect("STRING", {"SEMICOLON"})
+            return ActionNotify(msg.lexeme if msg else "", msg.line if msg else self._current().line)
+        if self._match("timer"):
             ref = self._parse_entity_ref()
-            op_tok = self._expect_any({"iniciar", "parar", "finalizar"}, {"SEMICOLON"})
-            op = op_tok.lexeme if op_tok else ""
-            return ActionTimer(entity=ref, operation=op, line=ref.line)
-        if prod == "acao_servico":
-            self._expect("servico", {"IDENT"})
-            domain_tok = self._expect("IDENT", {"DOT"})
-            self._expect("DOT", {"IDENT"})
-            service_tok = self._expect("IDENT", {"LPAREN"})
-            self._expect("LPAREN", {"RPAREN"})
-            args = self._parse_args()
-            self._expect("RPAREN", {"SEMICOLON"})
-            domain = domain_tok.lexeme if domain_tok else ""
-            service = service_tok.lexeme if service_tok else ""
-            return ActionService(domain=domain, service=service, args=args, line=domain_tok.line if domain_tok else self._current().line)
-        if prod == "acao_se":
-            return self._parse_action_if()
-        if prod == "acao_escolha":
-            return self._parse_action_choose()
+            op = self._expect_any({"iniciar", "parar", "finalizar"}, {"SEMICOLON"})
+            return ActionTimer(ref, op.lexeme if op else "", ref.line)
+        if self._check("servico"):
+            return self._parse_service_action()
+        if self._check("se"):
+            return self._parse_if_action()
+        if self._check("escolha"):
+            return self._parse_choose_action()
 
         self._error_at(self._current(), "acao invalida")
         self._panic({"SEMICOLON", "senao", "caso", "RBRACE"})
-        return ActionNotify(message="", line=self._current().line)
+        return ActionNotify("", self._current().line)
 
-    def _parse_action_if(self) -> ActionIf:
+    # Analisa uma acao servico.
+    def _parse_service_action(self):
+        start = self._expect("servico", {"IDENT"})
+        domain = self._expect("IDENT", {"DOT"})
+        self._expect("DOT", {"IDENT"})
+        service = self._expect("IDENT", {"LPAREN"})
+        self._expect("LPAREN", {"RPAREN"})
+        args = self._parse_args()
+        self._expect("RPAREN", {"SEMICOLON"})
+        return ActionService(
+            domain.lexeme if domain else "",
+            service.lexeme if service else "",
+            args,
+            domain.line if domain else (start.line if start else self._current().line),
+        )
+
+    # Analisa uma acao se.
+    def _parse_if_action(self):
         start = self._expect("se", {"LPAREN", "hora", "sol", "dispositivo", "IDENT", "ENTITY_ID", "nao"})
-        cond = self._parse_expr_or()
+        condition = self._parse_expr_or()
         self._expect("entao", {"LBRACE"})
         then_actions = self._parse_action_block({"senao", "SEMICOLON", "RBRACE"})
-        else_actions = None
-        if self._match("senao"):
-            else_actions = self._parse_action_block({"SEMICOLON", "RBRACE"})
-        return ActionIf(condition=cond, then_actions=then_actions, else_actions=else_actions, line=start.line if start else self._current().line)
+        else_actions = self._parse_action_block({"SEMICOLON", "RBRACE"}) if self._match("senao") else None
+        return ActionIf(condition, then_actions, else_actions, start.line if start else self._current().line)
 
-    def _parse_action_choose(self) -> ActionChoose:
+    # Analisa uma acao escolha.
+    def _parse_choose_action(self):
         start = self._expect("escolha", {"LBRACE"})
         self._expect("LBRACE", {"caso", "senao", "RBRACE"})
-        cases: List[ChooseCase] = []
-        while True:
-            prod = self._predict("lista_casos")
-            if prod == EPSILON or prod is None:
-                break
+        cases = []
+
+        while self._check("caso"):
             self._expect("caso", {"SEMICOLON"})
-            cond = self._parse_expr_or()
+            condition = self._parse_expr_or()
             self._expect("ARROW", {"LBRACE"})
             actions = self._parse_action_block({"caso", "senao", "RBRACE"})
-            cases.append(ChooseCase(condition=cond, actions=actions, line=self._current().line))
-        default_actions = None
-        if self._match("senao"):
-            default_actions = self._parse_action_block({"RBRACE"})
+            cases.append(ChooseCase(condition, actions, self._current().line))
+
+        default_actions = self._parse_action_block({"RBRACE"}) if self._match("senao") else None
         self._expect("RBRACE", {"SEMICOLON", "RBRACE", "modo"})
-        return ActionChoose(cases=cases, default_actions=default_actions, line=start.line if start else self._current().line)
+        return ActionChoose(cases, default_actions, start.line if start else self._current().line)
 
-    def _parse_args(self) -> Dict[str, Value]:
-        prod = self._predict("args_opt")
-        if prod == EPSILON or prod is None:
-            return {}
-        return self._parse_args_list()
+    # Analisa argumentos opcionais.
+    def _parse_args(self):
+        args = {}
+        if self._check("RPAREN"):
+            return args
 
-    def _parse_args_list(self) -> Dict[str, Value]:
-        args: Dict[str, Value] = {}
-        key, val = self._parse_arg()
+        key, value = self._parse_arg()
         if key:
-            args[key] = val
-        while True:
-            prod = self._predict("args_tail")
-            if prod == EPSILON or prod is None:
-                break
-            self._expect("COMMA", {"IDENT"})
-            key, val = self._parse_arg()
+            args[key] = value
+        while self._match("COMMA"):
+            key, value = self._parse_arg()
             if key:
-                args[key] = val
+                args[key] = value
         return args
 
-    def _parse_arg(self) -> tuple[str, Value]:
-        key_tok = self._expect("IDENT", {"ASSIGN", "RPAREN"})
-        self._expect("ASSIGN", {"RPAREN"})
-        val = self._parse_value()
-        return key_tok.lexeme if key_tok else "", val
+    # Analisa um argumento nomeado.
+    def _parse_arg(self):
+        key = self._expect("IDENT", {"ASSIGN", "RPAREN"})
+        self._expect("ASSIGN", VALUE_START_TOKENS | {"RPAREN"})
+        return (key.lexeme if key else ""), self._parse_value()
 
-    def _parse_value(self) -> Value:
-        prod = self._predict("valor")
+    # Analisa um valor.
+    def _parse_value(self):
         tok = self._current()
-        if prod == "valor_string":
-            self._expect("STRING", {"COMMA", "RPAREN", "SEMICOLON"})
-            return Value(kind="string", value=tok.lexeme, line=tok.line)
-        if prod == "valor_number":
-            self._expect("NUMBER", {"COMMA", "RPAREN", "SEMICOLON"})
-            return Value(kind="number", value=self._parse_number(tok.lexeme), line=tok.line)
-        if prod == "valor_boolean":
-            self._expect("BOOLEAN", {"COMMA", "RPAREN", "SEMICOLON"})
-            return Value(kind="boolean", value=(tok.lexeme == "true"), line=tok.line)
-        if prod == "valor_duration":
-            self._expect("DURATION", {"COMMA", "RPAREN", "SEMICOLON"})
-            duration = self._parse_duration_from_lexeme(tok.lexeme, tok.line)
-            return Value(kind="duration", value=duration, line=tok.line)
-        if prod == "valor_time":
-            self._expect("TIME", {"COMMA", "RPAREN", "SEMICOLON"})
-            return Value(kind="time", value=tok.lexeme, line=tok.line)
-        if prod == "valor_entity":
-            self._expect("ENTITY_ID", {"COMMA", "RPAREN", "SEMICOLON"})
-            return Value(kind="entity", value=EntityRef(name=tok.lexeme, is_entity_id=True, line=tok.line), line=tok.line)
-        if prod == "valor_ident":
-            self._expect("IDENT", {"COMMA", "RPAREN", "SEMICOLON"})
-            return Value(kind="ident", value=tok.lexeme, line=tok.line)
-        if prod == "valor_list":
-            self._expect("LBRACKET", {"RBRACKET"})
-            values = self._parse_lista_valores_opt()
-            self._expect("RBRACKET", {"COMMA", "RPAREN", "SEMICOLON"})
-            return Value(kind="list", value=values, line=tok.line)
-        if prod == "valor_map":
-            self._expect("LBRACE", {"RBRACE"})
-            items = self._parse_mapa_itens_opt()
-            self._expect("RBRACE", {"COMMA", "RPAREN", "SEMICOLON"})
-            return Value(kind="map", value=items, line=tok.line)
+        if self._match("STRING"):
+            return Value("string", tok.lexeme, tok.line)
+        if self._match("NUMBER"):
+            return Value("number", self._parse_number(tok.lexeme), tok.line)
+        if self._match("BOOLEAN"):
+            return Value("boolean", tok.lexeme == "true", tok.line)
+        if self._match("DURATION"):
+            return Value("duration", self._duration_from_lexeme(tok.lexeme, tok.line), tok.line)
+        if self._match("TIME"):
+            return Value("time", tok.lexeme, tok.line)
+        if self._match("ENTITY_ID"):
+            return Value("entity", EntityRef(tok.lexeme, True, tok.line), tok.line)
+        if self._match("IDENT"):
+            return Value("ident", tok.lexeme, tok.line)
+        if self._match("LBRACKET"):
+            return self._parse_list_value(tok.line)
+        if self._match("LBRACE"):
+            return self._parse_map_value(tok.line)
 
         self._error_at(tok, "valor invalido")
-        return Value(kind="invalid", value=None, line=tok.line)
+        return Value("invalid", None, tok.line)
 
-    def _parse_lista_valores_opt(self) -> List[Value]:
-        prod = self._predict("lista_valores_opt")
-        if prod == EPSILON or prod is None:
-            return []
-        values = [self._parse_value()]
-        while True:
-            prod = self._predict("lista_valores_tail")
-            if prod == EPSILON or prod is None:
-                break
-            self._expect("COMMA", {"COMMA", "RBRACKET"})
+    # Analisa uma lista como valor.
+    def _parse_list_value(self, line):
+        values = []
+        if not self._check("RBRACKET"):
             values.append(self._parse_value())
-        return values
+            while self._match("COMMA"):
+                values.append(self._parse_value())
+        self._expect("RBRACKET", {"COMMA", "RPAREN", "SEMICOLON"})
+        return Value("list", values, line)
 
-    def _parse_mapa_itens_opt(self) -> Dict[str, Value]:
-        prod = self._predict("mapa_itens_opt")
-        if prod == EPSILON or prod is None:
-            return {}
-        items: Dict[str, Value] = {}
-        key, val = self._parse_mapa_item()
-        if key:
-            items[key] = val
-        while True:
-            prod = self._predict("mapa_itens_tail")
-            if prod == EPSILON or prod is None:
-                break
-            self._expect("COMMA", {"IDENT"})
-            key, val = self._parse_mapa_item()
+    # Analisa um mapa como valor.
+    def _parse_map_value(self, line):
+        items = {}
+        if not self._check("RBRACE"):
+            key, value = self._parse_map_item()
             if key:
-                items[key] = val
-        return items
+                items[key] = value
+            while self._match("COMMA"):
+                key, value = self._parse_map_item()
+                if key:
+                    items[key] = value
+        self._expect("RBRACE", {"COMMA", "RPAREN", "SEMICOLON"})
+        return Value("map", items, line)
 
-    def _parse_mapa_item(self) -> tuple[str, Value]:
-        key_tok = self._expect("IDENT", {"COLON", "RBRACE"})
-        self._expect("COLON", {"RBRACE"})
-        val = self._parse_value()
-        return key_tok.lexeme if key_tok else "", val
+    # Analisa um item do mapa.
+    def _parse_map_item(self):
+        key = self._expect("IDENT", {"COLON", "RBRACE"})
+        self._expect("COLON", VALUE_START_TOKENS | {"RBRACE"})
+        return (key.lexeme if key else ""), self._parse_value()
 
-    def _parse_entity_ref(self) -> EntityRef:
-        prod = self._predict("ref_entidade")
+    # Analisa uma referencia de entidade.
+    def _parse_entity_ref(self):
         tok = self._expect_any({"IDENT", "ENTITY_ID"}, {"SEMICOLON", "RPAREN"})
-        is_entity_id = tok.type == "ENTITY_ID" if tok else False
-        name = tok.lexeme if tok else ""
-        line = tok.line if tok else self._current().line
-        return EntityRef(name=name, is_entity_id=is_entity_id, line=line)
+        if not tok:
+            return EntityRef("", False, self._current().line)
+        return EntityRef(tok.lexeme, tok.type == "ENTITY_ID", tok.line)
 
-    def _parse_state_value(self) -> Any:
-        prod = self._predict("valor_estado")
+    # Analisa um valor de estado.
+    def _parse_state_value(self):
         tok = self._current()
-        if prod == "estado_state":
-            self._expect("STATE", {"SEMICOLON", "entao", "senao", "RPAREN"})
+        if self._match("STATE") or self._match("STRING") or self._match("IDENT"):
             return tok.lexeme
-        if prod == "estado_string":
-            self._expect("STRING", {"SEMICOLON", "entao", "senao", "RPAREN"})
-            return tok.lexeme
-        if prod == "estado_number":
-            self._expect("NUMBER", {"SEMICOLON", "entao", "senao", "RPAREN"})
+        if self._match("NUMBER"):
             return self._parse_number(tok.lexeme)
-        if prod == "estado_ident":
-            self._expect("IDENT", {"SEMICOLON", "entao", "senao", "RPAREN"})
-            return tok.lexeme
         self._error_at(tok, "estado invalido")
         return tok.lexeme
 
-    def _parse_duration(self) -> Duration:
+    # Analisa uma duracao.
+    def _parse_duration(self):
         tok = self._expect("DURATION", {"SEMICOLON", "RPAREN"})
         if not tok:
-            return Duration(value=0, unit="s", line=self._current().line)
-        return self._parse_duration_from_lexeme(tok.lexeme, tok.line)
+            return Duration(0, "s", self._current().line)
+        return self._duration_from_lexeme(tok.lexeme, tok.line)
 
-    def _parse_duration_from_lexeme(self, lexeme: str, line: int) -> Duration:
-        unit = "s"
-        for candidate in ("ms", "min", "s", "h", "d"):
-            if lexeme.endswith(candidate):
-                unit = candidate
-                num = lexeme[: -len(candidate)]
-                return Duration(value=float(num), unit=unit, line=line)
-        return Duration(value=float(lexeme), unit=unit, line=line)
+    # Converte o texto da duracao em objeto.
+    def _duration_from_lexeme(self, lexeme, line):
+        for unit in ("ms", "min", "s", "h", "d"):
+            if lexeme.endswith(unit):
+                return Duration(float(lexeme[:-len(unit)]), unit, line)
+        return Duration(float(lexeme), "s", line)
 
-    def _parse_number(self, lexeme: str) -> Any:
-        if "." in lexeme:
-            return float(lexeme)
-        return int(lexeme)
+    # Converte numero para int ou float.
+    def _parse_number(self, lexeme):
+        return float(lexeme) if "." in lexeme else int(lexeme)
 
-    def _current(self) -> Token:
+    # Retorna o token atual.
+    def _current(self):
         return self.tokens[self.pos]
 
-    def _advance(self) -> Token:
+    # Avanca para o proximo token.
+    def _advance(self):
         if not self._check("EOF"):
             self.pos += 1
         return self.tokens[self.pos - 1]
 
-    def _match(self, token_type: str) -> bool:
+    # Consome um token se ele for do tipo esperado.
+    def _match(self, token_type):
         if self._check(token_type):
             self._advance()
             return True
         return False
 
-    def _check(self, token_type: str) -> bool:
+    # Verifica o tipo do token atual.
+    def _check(self, token_type):
         return self._current().type == token_type
 
-    def _check_any(self, token_types: Set[str]) -> bool:
+    # Verifica se o token atual esta em um conjunto.
+    def _check_any(self, token_types):
         return self._current().type in token_types
 
-    def _expect(self, token_type: str, sync: Set[str]) -> Optional[Token]:
+    # Consome um token obrigatorio.
+    def _expect(self, token_type, sync):
         if self._check(token_type):
             return self._advance()
         self._error_at(self._current(), f"esperado '{token_type}'")
         self._panic(sync)
         return None
 
-    def _expect_any(self, token_types: Set[str], sync: Set[str]) -> Optional[Token]:
+    # Consome um token obrigatorio entre varias opcoes.
+    def _expect_any(self, token_types, sync):
         if self._check_any(token_types):
             return self._advance()
-        names = ", ".join(sorted(token_types))
-        self._error_at(self._current(), f"esperado um de: {names}")
+        self._error_at(self._current(), f"esperado um de: {', '.join(sorted(token_types))}")
         self._panic(sync)
         return None
 
-    def _predict(self, nonterminal: str) -> Optional[str]:
-        table = PREDICTIVE_TABLE.get(nonterminal, {})
-        lookahead = self._current().type
-        prod = table.get(lookahead)
-        if prod is None:
-            self._error_at(self._current(), f"esperado <{nonterminal}>")
-            self._panic(SYNC_SETS.get(nonterminal, {"SEMICOLON", "RBRACE", "EOF"}))
-            return None
-        return prod
-
-    def _error_at(self, token: Token, message: str) -> None:
+    # Registra um erro sintatico.
+    def _error_at(self, token, message):
         self.errors.append(f"[Sintatico] Linha {token.line}, Coluna {token.col}: {message}")
 
-    def _panic(self, sync: Set[str]) -> None:
+    # Avanca ate um ponto seguro de recuperacao.
+    def _panic(self, sync):
         while not self._check("EOF") and not self._check_any(sync):
             self._advance()
