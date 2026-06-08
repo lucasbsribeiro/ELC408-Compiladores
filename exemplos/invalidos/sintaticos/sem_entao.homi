@@ -1,5 +1,0 @@
-automacao "Erro Sintatico 3" {
-  quando hora 10:00;
-  notificar "teste";
-  modo single;
-}

@@ -1,4 +1,0 @@
-automacao "Erro Lexico 3" {
-  quando hora 10:00;
-  entao notificar "texto sem fechar;
-}

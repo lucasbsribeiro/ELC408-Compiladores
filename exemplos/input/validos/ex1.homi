@@ -1,0 +1,7 @@
+automacao "Acender entrada ao escurecer" {
+  quando por_do_sol;
+  entao {
+    ligar light.entrada;
+  }
+  modo single;
+}

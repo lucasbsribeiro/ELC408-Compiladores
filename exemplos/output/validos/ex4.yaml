@@ -1,0 +1,48 @@
+- id: '1780959156355'
+  alias: 'Controle inteligente do ar'
+  description: ''
+  triggers:
+    - trigger: 'numeric_state'
+      entity_id: 'sensor.sala'
+      above: 24
+  conditions:
+  actions:
+    - choose:
+        - conditions:
+            - condition: 'numeric_state'
+              entity_id: 'sensor.sala'
+              below: 18
+          sequence:
+            - action: 'climate.turn_off'
+              target:
+                entity_id: 'climate.ar_condicionado'
+            - action: 'notify.notify'
+              data:
+                message: 'Muito frio, ar desligado'
+        - conditions:
+            - condition: 'numeric_state'
+              entity_id: 'sensor.sala'
+              above: 17.999999
+            - condition: 'numeric_state'
+              entity_id: 'sensor.sala'
+              below: 24.000001
+          sequence:
+            - action: 'notify.notify'
+              data:
+                message: 'Temperatura confortável'
+        - conditions:
+            - condition: 'numeric_state'
+              entity_id: 'sensor.sala'
+              above: 30
+          sequence:
+            - action: 'climate.turn_on'
+              target:
+                entity_id: 'climate.ar_condicionado'
+            - action: 'notify.notify'
+              data:
+                message: 'Calor extremo, ar ligado no máximo'
+      default:
+        - action: 'notify.notify'
+          data:
+            message: 'Temperatura moderada, mantendo estado'
+  mode: 'restart'

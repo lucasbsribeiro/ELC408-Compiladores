@@ -1,0 +1,14 @@
+entidades {
+  luz escritorio = light.escritorio;
+  sensor luminosidade = sensor.lux_sala;
+}
+
+automacao "Luz automática por luminosidade" {
+  quando luminosidade < 50;
+  se escritorio == off;
+  entao {
+    ligar escritorio;
+    notificar "Luz do escritório ligada por baixa claridade";
+  }
+  modo restart;
+}

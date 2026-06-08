@@ -1,9 +1,0 @@
-entidades {
-  interruptor tomada = switch.tomada_tv;
-}
-
-automacao "Tomada - botao ou pressao" {
-  quando dispositivo tomada on por 5s ou evento botao_pressionado;
-  entao servico switch.toggle(entity_id=switch.tomada_tv);
-  modo restart;
-}

@@ -1,0 +1,21 @@
+- id: '1780959150005'
+  alias: 'Corredor com desligamento automático'
+  description: ''
+  triggers:
+    - trigger: 'state'
+      entity_id: 'switch.entrada'
+      to: 'pressionado'
+  conditions:
+  actions:
+    - action: 'light.turn_on'
+      target:
+        entity_id: 'light.corredor'
+    - delay:
+        minutes: 2
+    - action: 'light.turn_off'
+      target:
+        entity_id: 'light.corredor'
+    - action: 'notify.notify'
+      data:
+        message: 'Luz do corredor desligada após 2 minutos'
+  mode: 'queued'

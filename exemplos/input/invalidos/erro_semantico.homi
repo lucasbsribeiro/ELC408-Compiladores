@@ -1,0 +1,11 @@
+entidades {
+  sensor temp = sensor.temperatura;
+}
+
+automacao "Erro semântico" {
+  quando temp >= 25;
+  se lamp == on;          # 'lamp' não foi declarado
+  entao {
+    ligar temp;           # 'ligar' não pode ser usado com sensor
+  }
+}

@@ -1,0 +1,55 @@
+- id: '1780960140361'
+  alias: 'Cena ''Estudar'' com controle remoto'
+  description: ''
+  triggers:
+    - trigger: 'state'
+      entity_id: 'switch.controle'
+      to: 'pressionado'
+      for:
+        seconds: 3
+    - trigger: 'time_pattern'
+      minutes: '/1'
+  conditions:
+    - condition: 'and'
+      conditions:
+        - condition: 'state'
+          entity_id: 'binary_sensor.sala'
+          state: 'on'
+        - condition: 'not'
+          conditions:
+            - condition: 'state'
+              entity_id: 'light.sala'
+              state: 'on'
+    - condition: 'time'
+      after: '19:00:00'
+      before: '23:00:00'
+  actions:
+    - choose:
+        - conditions:
+            - condition: 'state'
+              entity_id: 'binary_sensor.sala'
+              state: 'on'
+          sequence:
+            - action: 'light.turn_on'
+              target:
+                entity_id: 'light.sala'
+              data:
+                brightness: 200
+                rgb_color:
+                  - 255
+                  - 150
+                  - 50
+                transition: 1.5
+            - action: 'notify.notify'
+              data:
+                message: 'Modo estudo ativado com luz quente'
+      default:
+        - action: 'notify.notify'
+          data:
+            message: 'Ninguém na sala, nada foi alterado'
+    - delay:
+        seconds: 30
+    - action: 'notify.notify'
+      data:
+        message: 'Cena finalizada'
+  mode: 'restart'

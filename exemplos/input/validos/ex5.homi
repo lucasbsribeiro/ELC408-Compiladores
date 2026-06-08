@@ -1,0 +1,29 @@
+entidades {
+  luz sala = light.sala;
+  sensor presenca = binary_sensor.sala;
+  interruptor remoto = switch.controle;
+}
+
+automacao "Cena 'Estudar' com controle remoto" {
+  quando dispositivo remoto pressionado por 3s ou entre 19:00 e 23:00;  
+  se presenca == on e nao (sala == on);
+  entao {
+    escolha {
+      caso presenca == on -> {
+        servico light.turn_on(
+          entity_id = light.sala,
+          brightness = 200,
+          rgb_color = [255, 150, 50],
+          transition = 1.5
+        );
+        notificar "Modo estudo ativado com luz quente";
+      }
+      senao {
+        notificar "Ninguém na sala, nada foi alterado";
+      }
+    }
+    esperar 30s;
+    notificar "Cena finalizada";
+  }
+  modo restart;
+}

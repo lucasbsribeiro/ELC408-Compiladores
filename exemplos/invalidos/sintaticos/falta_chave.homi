@@ -1,3 +1,0 @@
-automacao "Erro Sintatico 2" {
-  quando hora 10:00;
-  entao notificar "teste";

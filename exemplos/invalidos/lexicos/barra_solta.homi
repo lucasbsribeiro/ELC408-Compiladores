@@ -1,4 +1,0 @@
-automacao "Erro Lexico 5" {
-  quando hora 10:00/;
-  entao notificar "teste";
-}

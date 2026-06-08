@@ -1,5 +1,0 @@
-automacao "Erro Semantico 1" {
-  quando hora 10:00;
-  entao ligar luz_sala;
-  modo single;
-}

@@ -1,0 +1,15 @@
+entidades {
+  interruptor botao = switch.entrada;
+  luz corredor = light.corredor;
+}
+
+automacao "Corredor com desligamento automático" {
+  quando dispositivo botao pressionado;
+  entao {
+    ligar corredor;
+    esperar 2min;
+    desligar corredor;
+    notificar "Luz do corredor desligada após 2 minutos";
+  }
+  modo queued;
+}

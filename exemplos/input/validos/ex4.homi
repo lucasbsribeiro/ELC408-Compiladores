@@ -1,0 +1,27 @@
+entidades {
+  sensor temperatura = sensor.sala;
+  clima ar = climate.ar_condicionado;
+}
+
+automacao "Controle inteligente do ar" {
+  quando temperatura > 24;
+  entao {
+    escolha {
+      caso temperatura < 18 -> {
+        desligar ar;
+        notificar "Muito frio, ar desligado";
+      }
+      caso temperatura >= 18 e temperatura <= 24 -> {
+        notificar "Temperatura confortável";
+      }
+      caso temperatura > 30 -> {
+        ligar ar;
+        notificar "Calor extremo, ar ligado no máximo";
+      }
+      senao {
+        notificar "Temperatura moderada, mantendo estado";
+      }
+    }
+  }
+  modo restart;
+}

@@ -1,0 +1,12 @@
+- id: '1780959122933'
+  alias: 'Acender entrada ao escurecer'
+  description: ''
+  triggers:
+    - trigger: 'sun'
+      event: 'sunset'
+  conditions:
+  actions:
+    - action: 'light.turn_on'
+      target:
+        entity_id: 'light.entrada'
+  mode: 'single'

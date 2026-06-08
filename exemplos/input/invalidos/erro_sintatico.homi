@@ -1,0 +1,11 @@
+entidades {
+  luz sala = light.sala;
+}
+
+automacao "Erro sintático" {
+  quando dispositivo botao pressionado   # faltou ponto e vírgula
+  se sala == off;                        // faltou ponto e vírgula
+  entao {
+    ligar sala;
+  }
+}

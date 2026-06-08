@@ -53,7 +53,10 @@ class YamlGenerator:
         conditions = []
         if automation.condition:
             conditions = self._as_condition_list(self._expr_to_yaml(automation.condition))
-
+            self._extra_conditions = []   
+            triggers = [self._trigger_to_yaml(t) for t in automation.triggers if t is not None]
+            conditions = self._as_condition_list(self._expr_to_yaml(automation.condition))
+            conditions.extend(self._extra_conditions)
         return {
             "id": str(id_value),
             "alias": automation.name,
@@ -73,7 +76,12 @@ class YamlGenerator:
         if isinstance(trigger, TriggerTime):
             return {"trigger": "time", "at": self._normalize_time(trigger.time)}
         if isinstance(trigger, TriggerBetween):
-            return {"trigger": "time", "at": self._normalize_time(trigger.start)}
+            self._extra_conditions.append({
+            "condition": "time",
+            "after": self._normalize_time(trigger.start),
+            "before": self._normalize_time(trigger.end)
+            })
+            return {"trigger": "time_pattern", "minutes": "/1"}
         if isinstance(trigger, TriggerSun):
             return self._sun_trigger_to_yaml(trigger)
         if isinstance(trigger, TriggerDevice):

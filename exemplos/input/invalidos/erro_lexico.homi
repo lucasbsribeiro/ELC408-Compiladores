@@ -1,0 +1,6 @@
+automacao "Teste léxico" {
+  quando @evento_estranho;   # '@' não é permitido
+  entao {
+    notificar "Faltou fechar aspas;
+  }
+}

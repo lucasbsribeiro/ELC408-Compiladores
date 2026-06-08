@@ -1,0 +1,11 @@
+entidades {
+  luz sala = light.sala;
+}
+
+automacao "Demonstração de erros" {
+  quando $botao pressionado;   # erro léxico: caractere '$' inválido
+  se sala == on                # erro sintático: faltou ';' após a condição
+  entao {
+    ligar temp;                # erro semântico: alias 'temp' não declarado
+  }
+}

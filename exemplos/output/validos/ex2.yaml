@@ -1,0 +1,19 @@
+- id: '1780959143408'
+  alias: 'Luz automática por luminosidade'
+  description: ''
+  triggers:
+    - trigger: 'numeric_state'
+      entity_id: 'sensor.lux_sala'
+      below: 50
+  conditions:
+    - condition: 'state'
+      entity_id: 'light.escritorio'
+      state: 'off'
+  actions:
+    - action: 'light.turn_on'
+      target:
+        entity_id: 'light.escritorio'
+    - action: 'notify.notify'
+      data:
+        message: 'Luz do escritório ligada por baixa claridade'
+  mode: 'restart'
