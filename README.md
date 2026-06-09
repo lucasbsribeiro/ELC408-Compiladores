@@ -3,7 +3,7 @@
 Converte scripts `.homi` em arquivos `automations.yaml` prontos para o Home Assistant.
 
 ---
-** Link do repositório 
+## Link do repositório 
 
 https://github.com/lucasbsribeiro/ELC408-Compiladores#
 ---
