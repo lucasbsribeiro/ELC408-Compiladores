@@ -38,6 +38,7 @@ class YamlGenerator:
     # Prepara o gerador com a tabela de simbolos.
     def __init__(self, symbols):
         self.symbols = symbols
+        self._extra_conditions = []  # será resetado a cada automação
 
     # Gera o YAML de todas as automacoes.
     def generate(self, program):
@@ -50,18 +51,25 @@ class YamlGenerator:
 
     # Converte uma automacao para dicionario.
     def _automation_to_dict(self, automation, id_value):
+        # Reinicia a lista de condições extras para esta automação
+        self._extra_conditions = []
+        
+        # Gera os triggers (e coleta condições extras no caminho)
+        triggers = [self._trigger_to_yaml(t) for t in automation.triggers if t is not None]
+        
+        # Processa a condição principal, se existir
         conditions = []
         if automation.condition:
             conditions = self._as_condition_list(self._expr_to_yaml(automation.condition))
-            self._extra_conditions = []   
-            triggers = [self._trigger_to_yaml(t) for t in automation.triggers if t is not None]
-            conditions = self._as_condition_list(self._expr_to_yaml(automation.condition))
-            conditions.extend(self._extra_conditions)
+        
+        # Adiciona quaisquer condições extras acumuladas (ex: de TriggerBetween)
+        conditions.extend(self._extra_conditions)
+        
         return {
             "id": str(id_value),
             "alias": automation.name,
             "description": "",
-            "triggers": [self._trigger_to_yaml(trigger) for trigger in automation.triggers],
+            "triggers": triggers,
             "conditions": conditions,
             "actions": [self._action_to_yaml(action) for action in automation.actions],
             "mode": automation.mode or "single",
@@ -76,11 +84,13 @@ class YamlGenerator:
         if isinstance(trigger, TriggerTime):
             return {"trigger": "time", "at": self._normalize_time(trigger.time)}
         if isinstance(trigger, TriggerBetween):
+            # Adiciona uma condição de tempo para restringir o horário
             self._extra_conditions.append({
-            "condition": "time",
-            "after": self._normalize_time(trigger.start),
-            "before": self._normalize_time(trigger.end)
+                "condition": "time",
+                "after": self._normalize_time(trigger.start),
+                "before": self._normalize_time(trigger.end)
             })
+            # Retorna um trigger que dispara a cada minuto
             return {"trigger": "time_pattern", "minutes": "/1"}
         if isinstance(trigger, TriggerSun):
             return self._sun_trigger_to_yaml(trigger)

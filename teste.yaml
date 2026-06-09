@@ -1,0 +1,61 @@
+- id: '1780964485203'
+  alias: 'Notificação matinal'
+  description: ''
+  triggers:
+    - trigger: 'event'
+      event_type: 'trabalho_iniciado'
+  conditions:
+    - condition: 'time'
+      after: '08:00:00'
+  actions:
+    - action: 'notify.notify'
+      data:
+        message: 'Bom dia, hora de trabalhar!'
+  mode: 'single'
+- id: '1780964485204'
+  alias: 'Luzes entre horários'
+  description: ''
+  triggers:
+    - trigger: 'time_pattern'
+      minutes: '/1'
+  conditions:
+    - condition: 'time'
+      after: '18:00:00'
+      before: '23:00:00'
+  actions:
+    - action: 'light.turn_on'
+      target:
+        entity_id: 'light.sala'
+    - action: 'light.turn_on'
+      target:
+        entity_id: 'light.kitchen'
+  mode: 'single'
+- id: '1780964485205'
+  alias: 'Jardim ao amanhecer'
+  description: ''
+  triggers:
+    - trigger: 'sun'
+      event: 'sunrise'
+      offset: '-00:30:00'
+  conditions:
+  actions:
+    - action: 'light.turn_on'
+      target:
+        entity_id: 'light.garden'
+    - action: 'notify.notify'
+      data:
+        message: 'Acendendo jardim antes do sol nascer'
+  mode: 'single'
+- id: '1780964485206'
+  alias: 'Cortinas ao pôr do sol'
+  description: ''
+  triggers:
+    - trigger: 'sun'
+      event: 'sunset'
+      offset: '+01:00:00'
+  conditions:
+  actions:
+    - action: 'light.turn_on'
+      target:
+        entity_id: 'light.sala'
+  mode: 'single'

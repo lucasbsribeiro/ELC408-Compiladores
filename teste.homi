@@ -1,0 +1,45 @@
+entidades {
+    luz luz_sala = light.sala;
+    luz luz_cozinha = light.kitchen;
+    luz luz_jardim = light.garden;
+    sensor temp = sensor.temperatura_sala;
+    interruptor ventilador = switch.ventilador;
+    alarme alarme_casa = alarm_control_panel.alarme_principal;
+    timer cozinha = timer.cozinha;
+    clima externo = weather.casa;
+    midia tv = media_player.sala_tv;
+    cortina quarto = cover.cortina_quarto;
+    cortina cortina_sala = cover.sala;
+}
+
+automacao "Notificação matinal" {
+    quando evento trabalho_iniciado;
+    se hora depois 08:00;
+    entao {
+        notificar "Bom dia, hora de trabalhar!";
+    }
+}
+
+automacao "Luzes entre horários" {
+    quando entre 18:00 e 23:00;
+    entao {
+        ligar luz_sala;
+        ligar luz_cozinha;
+    }
+}
+
+automacao "Jardim ao amanhecer" {
+    quando nascer_do_sol - 30min;
+    entao {
+        ligar luz_jardim;
+        notificar "Acendendo jardim antes do sol nascer";
+    }
+}
+
+automacao "Cortinas ao pôr do sol" {
+    quando por_do_sol + 1h;
+    entao {
+        //fechar cortina_sala;
+        ligar luz_sala;
+    }
+}
